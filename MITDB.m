@@ -74,7 +74,7 @@ y2 = dwt_denoise2(sig2); % Denoising Lead II
 
 subplot(221)
 plot(tm1{1,48},sig1{1,48})
-xlim([0 40])
+xlim([1 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead I')
@@ -83,15 +83,16 @@ legend('No filtering','Location','Best')
 
 subplot(222)
 plot(tm2{1,48},sig2{1,48})
-xlim([0 40])
+xlim([1 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead II')
 legend('No filtering','Location','Best')
 
+
 subplot(223)
 plot(tm1{1,48}, y1{1,48}*(-1))
-xlim([0 40])
+xlim([1 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead I')
@@ -99,7 +100,7 @@ legend('DWT filtering','Location','Best')
 
 subplot(224)
 plot(tm2{1,48}, y2{1,48}*(-1))
-xlim([0 40])
+xlim([1 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead II')
@@ -112,18 +113,33 @@ y11 = cellfun(@abs, y1,'UniformOutput',false);
 y22 = cellfun(@abs, y2,'UniformOutput',false);
 
 %%
-yy = mat2cell(cellfun(@(x)x.^2,y11,'UniformOutput',false),ones(1,1),ones(1,48));
+yy1 = mat2cell(cellfun(@(x)x.^2,y11,'UniformOutput',false),ones(1,1),ones(1,48));
+yy2 = mat2cell(cellfun(@(x)x.^2,y22,'UniformOutput',false),ones(1,1),ones(1,48));
 
 %% Findpeaks for both leads and all subjects
 % Lead I
 for i = 1:length(Data)
-    [pks1{1,i},locs1{1,i}] = findpeaks(yy{1,i}{1,1},tm1{1,i},'MinPeakHeight',...
+    [pks1{1,i},locs1{1,i}] = findpeaks(yy1{1,i}{1,1},tm1{1,i},'MinPeakHeight',...
     0.1,'MinPeakDistance',0.150);
 end
-%%
+
+% Lead II
+for i = 1:length(Data)
+    [pks2{1,i},locs2{1,i}] = findpeaks(yy2{1,i}{1,1},tm2{1,i},'MinPeakHeight',...
+    0.1,'MinPeakDistance',0.150);
+end
+%% RR-interval
+
+% Lead I
 for i = 1:length(Data)
     RR_int1{1,i} = diff(locs1{1,i});
 end
+
+% Lead II
+for i = 1:length(Data)
+    RR_int2{1,i} = diff(locs2{1,i});
+end
+
 %plot(locs1{1,48},pks1{1,48},'ro')
 %%
 
@@ -139,4 +155,4 @@ xlim([0 100])
 subplot(121)
 plot(tm{1,48},yy{1,48})
 subplot(122)
-plot(tm{1,48},yy{1,24})
+plot(tm{1,48},yy{1,48})
