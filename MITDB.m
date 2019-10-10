@@ -55,8 +55,8 @@ xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 
 %% Denoising with DWT - Lead I and Lead II
-y1 = dwt_denoise1(sig1); % Denoising Lead I
-y2 = dwt_denoise2(sig2); % Denoising Lead II
+y1 = dwt_denoise1(sig1,9,Data); % Denoising Lead I
+y2 = dwt_denoise2(sig2,9,Data); % Denoising Lead II
 
 %% Result of DWT filtering
 
@@ -78,6 +78,58 @@ title('Subject 48, Lead II')
 legend('No filtering','Location','Best')
 
 
+%% RR-interval - with and without segmentation
+RRI = zeros(0);
+
+% RR-interval without segmentation.
+for i = 1:length(Data)
+    RRI{1,i} = diff(QRS{1,i}); 
+end
+
+% RR-interval with segmentation.
+fun = @(m)diff(m,1,2);
+RRIseg = cellfun(fun,Data_128,'uni',0);
+
+%% Calculate HRV features
+M_RRI = zeros(0);
+SDNN = zeros(0);
+RMSSD = zeros(0);
+NN50 = zeros(0);
+pNN50 = zeros(0);
+
+for i = 1:length(Data)
+    M_RRI{1,i} = mean(RRI{1,i}); % Mean of RR intervals for each subject.
+    SDNN{1,i} = std(RRI{1,i}); % Standard deviation of all RR intervals (for each subject).
+    RMSSD{1,i} = 
+    
+end
+
+
+
+
+%% Segmentation of filtered signal based on R peak location
+subplot(211)
+plot(y1{1,1}(1:Data_128{1}(1,end)))
+title('Segmentation (first 128 R peaks), subject 1, lead I')
+xlabel('Samples')
+ylabel('Amplitude (mV)')
+subplot(212)
+plot(y2{1,1}(1:Data_128{1}(1,end)))
+title('Segmentation (first 128 R peaks), subject 1, lead II')
+xlabel('Samples')
+ylabel('Amplitude (mV)')
+
+%y1_seg{1,1} = y1{1,1}(Data_128{1}(1,1):Data_128{1}(1,end));
+
+y1_seg = zeros(0);
+
+for i = 1:34
+    y1_seg{1,i} = y1{1,1}(Data_128{1}(i,i):Data_128{1}(i,end));
+end
+
+
+
+%%
 subplot(223)
 plot(tm1{1,48}, y1{1,48})
 xlim([1 40])

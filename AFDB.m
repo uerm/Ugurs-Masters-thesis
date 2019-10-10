@@ -16,3 +16,9 @@ for i = 1:length(Data1)
     [sig_1{i}, Fs1, tm_1{i}] = rdsamp(num2str(Data1(i)),1); % Lead I
     [sig_2{i}, Fs2, tm_2{i}] = rdsamp(num2str(Data1(i)),2); % Lead II
 end
+
+%%
+subplot(121)
+plot(r(:,1))
+subplot(122)
+plot(r(:,2))

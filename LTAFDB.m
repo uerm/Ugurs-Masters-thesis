@@ -32,3 +32,6 @@ xlim([0 40])
 subplot(212)
 plot(t2{1,40},s2{1,40})
 xlim([0 40])
+
+%% Filtering using DWT
+
