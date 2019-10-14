@@ -58,7 +58,7 @@ ylabel('Amplitude (mV)')
 y1 = dwt_denoise1(sig1,9,Data); % Denoising Lead I
 y2 = dwt_denoise2(sig2,9,Data); % Denoising Lead II
 
-%% Result of DWT filtering
+%% Result of DWT filtering - plots
 
 subplot(221)
 plot(tm1{1,48},sig1{1,48})
@@ -77,6 +77,34 @@ ylabel('Amplitude (mV)')
 title('Subject 48, Lead II')
 legend('No filtering','Location','Best')
 
+%% Segmentation of RR intervals with 50% overlap
+QRS_Length=length(QRS);
+
+Data_128 = zeros(0);
+
+for i=1:QRS_Length
+    L=1;
+    K=1;
+    m=0;
+    for j=1:64:length(QRS{i})
+        if (L+128) > length(QRS{i})
+            continue;
+        end
+        Data_128{i}(K,:)=QRS{i}((64*m+1):(L+127));
+        L=L+64;
+        K=K+1;
+        m=m+1;
+    end
+end
+
+%%
+
+L = 2268;
+w = 128;
+for k1 = 1:L-w+1
+    datawin(k1,:) = k1:k1+w-1;
+    saen(k1,:) = QRS{i}(datawin(k1,:));    
+end
 
 %% RR-interval - with and without segmentation
 RRI = zeros(0);
@@ -87,24 +115,39 @@ for i = 1:length(Data)
 end
 
 % RR-interval with segmentation.
-fun = @(m)diff(m,1,2);
-RRIseg = cellfun(fun,Data_128,'uni',0);
+%fun = @(m)diff(m,1,2);
+RRIseg = cellfun(@(m)diff(m,1,2),Data_128,'uni',0);
 
-%% Calculate HRV features
+
+
+%% Calculate HRV features - without segmentation
 M_RRI = zeros(0);
 SDNN = zeros(0);
 RMSSD = zeros(0);
+nRMSSD = zeros(0);
 NN50 = zeros(0);
 pNN50 = zeros(0);
 
 for i = 1:length(Data)
     M_RRI{1,i} = mean(RRI{1,i}); % Mean of RR intervals for each subject.
-    SDNN{1,i} = std(RRI{1,i}); % Standard deviation of all RR intervals (for each subject).
-    RMSSD{1,i} = 
-    
+    SDNN{1,i} = std(RRI{1,i}); % Standard deviation of all RR intervals for each subject.
+    RMSSD{1,i} = rms(diff(RRI{1,i})); % RMSSD of RR intervals diff for each subject.
+    nRMSSD{1,i} = RMSSD{1,i}/M_RRI{1,i}; % nRMSSD of RR intervals.
 end
 
+%% Calculate HRV features - with segmentation
 
+% Mean of the RR intervals (of each row)
+m_RRIseg = cellfun(@(m)mean(m,2),RRIseg,'uni',0);
+
+% Standard deviation of RR intervals (of each row)
+s_RRIseg = cellfun(@(m)std(m,0,2),RRIseg,'uni',0);
+
+% RMSSD of RR interal segments
+r_RRIseg = cellfun(@(m)rms(diff(m,1,2),2),RRIseg,'uni',0);
+
+% nRMSSD of RR interval segments
+n_RRIseg = cellfun(@(x,y) x./y, r_RRIseg, m_RRIseg, 'uni',0);
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -119,7 +162,7 @@ title('Segmentation (first 128 R peaks), subject 1, lead II')
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 
-%y1_seg{1,1} = y1{1,1}(Data_128{1}(1,1):Data_128{1}(1,end));
+y1_seg{1,1} = y1{1,1}(1:Data_128{1}(1,end));
 
 y1_seg = zeros(0);
 
@@ -145,3 +188,17 @@ xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead II')
 legend('DWT filtering','Location','Best')
+
+%%
+cnt = 1;
+for p = 1:length(y1)
+    patient = y1{1,p};
+    peaks = Data_128{1,p};
+    figure
+    hold on
+    for i = 1:length(peaks(:,1))
+        seg = patient(peaks(i,1):peaks(i,end));
+        plot(linspace(peaks(i,1),peaks(i,end)),seg)
+    end
+    hold off
+end
