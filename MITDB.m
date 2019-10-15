@@ -97,14 +97,6 @@ for i=1:QRS_Length
     end
 end
 
-%%
-
-L = 2268;
-w = 128;
-for k1 = 1:L-w+1
-    datawin(k1,:) = k1:k1+w-1;
-    saen(k1,:) = QRS{i}(datawin(k1,:));    
-end
 
 %% RR-interval - with and without segmentation
 RRI = zeros(0);
@@ -127,13 +119,25 @@ RMSSD = zeros(0);
 nRMSSD = zeros(0);
 NN50 = zeros(0);
 pNN50 = zeros(0);
+CV = zeros(0);
+minRR = zeros(0);
 
 for i = 1:length(Data)
     M_RRI{1,i} = mean(RRI{1,i}); % Mean of RR intervals for each subject.
     SDNN{1,i} = std(RRI{1,i}); % Standard deviation of all RR intervals for each subject.
     RMSSD{1,i} = rms(diff(RRI{1,i})); % RMSSD of RR intervals diff for each subject.
     nRMSSD{1,i} = RMSSD{1,i}/M_RRI{1,i}; % nRMSSD of RR intervals.
+    CV{1,i} = SDNN{1,i}/M_RRI{1,i}; % Coefficient of variation.
+    minRRI{1,i} = min(RRI{1,i}); % Minimal RR interval.
 end
+%% NN50
+m = 0;
+for num = 1:length(RRI{1,3})-1
+    if (RRI{1,3}(num+1)-RRI{1,3}(num) > 50*10^(-3)*360)
+        m = m+1;
+    end
+end
+
 
 %% Calculate HRV features - with segmentation
 
@@ -148,6 +152,12 @@ r_RRIseg = cellfun(@(m)rms(diff(m,1,2),2),RRIseg,'uni',0);
 
 % nRMSSD of RR interval segments
 n_RRIseg = cellfun(@(x,y) x./y, r_RRIseg, m_RRIseg, 'uni',0);
+
+% Coefficient of variation of RR segments
+CV_RRIseg = cellfun(@(x,y) x./y, s_RRIseg, m_RRIseg, 'uni',0);
+
+% Minimal RR interval of segments.
+minRRIseg = cellfun(@(m) min(m,[],2), RRIseg,'uni',0);
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -191,14 +201,18 @@ legend('DWT filtering','Location','Best')
 
 %%
 cnt = 1;
+ecg_segments = {};
 for p = 1:length(y1)
     patient = y1{1,p};
     peaks = Data_128{1,p};
-    figure
-    hold on
+    seg_lengths = peaks(:,end)-peaks(:,1)+1;
+    max_len = max(seg_lengths);
+    patient_segments = zeros(0,max_len);
     for i = 1:length(peaks(:,1))
         seg = patient(peaks(i,1):peaks(i,end));
-        plot(linspace(peaks(i,1),peaks(i,end)),seg)
+        pad = zeros(1,max_len-length(seg));
+        padded_seg = [seg,pad];
+        patient_segments(end+1,:) = padded_seg;
     end
-    hold off
+    ecg_segments{end+1} = patient_segments;
 end
