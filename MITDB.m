@@ -31,7 +31,7 @@ end
 
 
 for i = 1:length(Data)
-    ecgpuwave(num2str(Data(i)),'test');
+    %ecgpuwave(num2str(Data(i)),'test');
     pwaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'p');
     twaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'t');
     QRS{i} = rdann(num2str(Data(i)),'test',[],[],[],'N');
@@ -59,23 +59,38 @@ y1 = dwt_denoise1(sig1,9,Data); % Denoising Lead I
 y2 = dwt_denoise2(sig2,9,Data); % Denoising Lead II
 
 %% Result of DWT filtering - plots
-
 subplot(221)
-plot(tm1{1,48},sig1{1,48})
+plot(tm1{1,1},sig1{1,48})
+title('Subject 48, lead I')
+xlim([0 40])
+xlabel('Time (s)')
+ylabel('Amplitude (mV)')
+legend('No Filtering','Location','Best')
+
+
+subplot(222)
+plot(tm1{1,48},y1{1,48})
 xlim([1 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead I')
-legend('No filtering','Location','Best')
+legend('DWT Filtering','Location','Best')
 
+subplot(223)
+plot(tm1{1,1},sig2{1,48})
+title('Subject 48, lead II')
+xlim([0 40])
+xlabel('Time (s)')
+ylabel('Amplitude (mV)')
+legend('No Filtering','Location','Best')
 
-subplot(222)
-plot(tm2{1,48},sig2{1,48})
+subplot(224)
+plot(tm2{1,48},y2{1,48})
 xlim([1 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead II')
-legend('No filtering','Location','Best')
+legend('DWT Filtering','Location','Best')
 
 %% Segmentation of RR intervals with 50% overlap
 QRS_Length=length(QRS);
@@ -120,7 +135,7 @@ nRMSSD = zeros(0);
 NN50 = zeros(0);
 pNN50 = zeros(0);
 CV = zeros(0);
-minRR = zeros(0);
+minRRI = zeros(0);
 
 for i = 1:length(Data)
     M_RRI{1,i} = mean(RRI{1,i}); % Mean of RR intervals for each subject.
@@ -130,14 +145,23 @@ for i = 1:length(Data)
     CV{1,i} = SDNN{1,i}/M_RRI{1,i}; % Coefficient of variation.
     minRRI{1,i} = min(RRI{1,i}); % Minimal RR interval.
 end
-%% NN50
-m = 0;
-for num = 1:length(RRI{1,3})-1
-    if (RRI{1,3}(num+1)-RRI{1,3}(num) > 50*10^(-3)*360)
-        m = m+1;
-    end
+
+% NN50
+NN50 = zeros(0);
+for i = 1:length(RRI) 
+n = 0; 
+    for num = 1:length(RRI{1,i})-1 
+        if (RRI{1,i}(num+1)-RRI{1,i}(num) > 50*10^(-3)*360) 
+        n = n+1; 
+        end 
+    end 
+NN50{i} = n; 
 end
 
+% pNN50 (in percentage)
+for i = 1:length(RRI)
+    pNN50{1,i} = (NN50{1,i}/length(RRI{1,i}))*100;
+end
 
 %% Calculate HRV features - with segmentation
 
@@ -163,44 +187,16 @@ minRRIseg = cellfun(@(m) min(m,[],2), RRIseg,'uni',0);
 %% Segmentation of filtered signal based on R peak location
 subplot(211)
 plot(y1{1,1}(1:Data_128{1}(1,end)))
-title('Segmentation (first 128 R peaks), subject 1, lead I')
+title('Segmentation (first 128 R peaks), subject 1, lead I, no zero padding')
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 subplot(212)
 plot(y2{1,1}(1:Data_128{1}(1,end)))
-title('Segmentation (first 128 R peaks), subject 1, lead II')
+title('Segmentation (first 128 R peaks), subject 1, lead II, no zero padding')
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 
-y1_seg{1,1} = y1{1,1}(1:Data_128{1}(1,end));
-
-y1_seg = zeros(0);
-
-for i = 1:34
-    y1_seg{1,i} = y1{1,1}(Data_128{1}(i,i):Data_128{1}(i,end));
-end
-
-
-
-%%
-subplot(223)
-plot(tm1{1,48}, y1{1,48})
-xlim([1 40])
-xlabel('Time (s)')
-ylabel('Amplitude (mV)')
-title('Subject 48, Lead I')
-legend('DWT filtering','Location','Best')
-
-subplot(224)
-plot(tm2{1,48}, y2{1,48})
-xlim([1 40])
-xlabel('Time (s)')
-ylabel('Amplitude (mV)')
-title('Subject 48, Lead II')
-legend('DWT filtering','Location','Best')
-
 %% Cutting the filtered signal in segments - Lead I, all patients
-cnt = 1;
 ecg_segments1 = {};
 for p = 1:length(y1)
     patient1 = y1{1,p};
@@ -218,7 +214,7 @@ for p = 1:length(y1)
 end
 
 %% Cutting the filtered signal in segments - Lead II, all patients
-cnt = 1;
+
 ecg_segments2 = {};
 for p = 1:length(y2)
     patient2 = y2{1,p};
@@ -235,8 +231,55 @@ for p = 1:length(y2)
     ecg_segments2{end+1} = patient_segments2;
 end
 
+%% Plot of ECG with zero padding
+figure()
+subplot(211)
+plot(ecg_segments1{1,1}(1,:))
+xlabel('Samples')
+ylabel('Amplitude (mV)')
+title('Segmentation (first 128 R peaks), subject 1, lead I, with zero padding')
+subplot(212)
+plot(ecg_segments2{1,1}(1,:))
+xlabel('Samples')
+ylabel('Amplitude (mV)')
+title('Segmentation (first 128 R peaks), subject 1, lead II, with zero padding')
+
+figure()
+subplot(211)
+plot(ecg_segments1{1,1}(1,37000:end))
+xlabel('Samples')
+ylabel('Amplitude (mV)')
+title('Subject 1, lead I, zeros')
+subplot(212)
+plot(ecg_segments2{1,1}(1,37000:end))
+xlabel('Samples')
+ylabel('Amplitude (mV)')
+title('Subject 1, lead II, zeros')
+
+
 %% Construct tensor for each patient
 
 for i = 1:length(Data)
     tensor{1,i} = cat(3,ecg_segments1{1,i},ecg_segments2{1,i});
 end
+
+%% Wavelet
+max_wavelet_level = 8;
+n=10;
+
+for i = 1:length(Data)
+    patient = tensor{1,i};
+    for k = 1:size(patient,1)
+        for j = 1:size(patient,3)
+            WDEC{1,i}(k,:,:,j) = modwt(tensor{1,i}(k,:,j),max_wavelet_level,'db4');
+            for l =1:max_wavelet_level+1
+                [imf,res] = emd(squeeze(WDEC{1,i}(k,l,:,j)),'Display',0);
+                pad_size = max(0,n-size(imf,2));
+                pad = zeros(size(imf,1),pad_size);
+                padded_imf = cat(2,imf,pad);
+                EMD{1,i}(k,l,:,:,j) = padded_imf(:,1:n);
+            end
+        end
+    end
+end
+%%
