@@ -264,22 +264,27 @@ for i = 1:length(Data)
 end
 
 %% Wavelet
+clear y1 y2 sig1 sig2 tm1 tm2 patient_segments1 patient_segments2 patient1 patient2 loc ecg_segments1 ecg_segments2 Data_128
 max_wavelet_level = 8;
-n=10;
+n=5;
 
 for i = 1:length(Data)
+    i
     patient = tensor{1,i};
     for k = 1:size(patient,1)
         for j = 1:size(patient,3)
-            WDEC{1,i}(k,:,:,j) = modwt(tensor{1,i}(k,:,j),max_wavelet_level,'db4');
+            WDEC{1,i}(k,:,:,j) = single(modwt(tensor{1,i}(k,:,j),max_wavelet_level,'db4'));
             for l =1:max_wavelet_level+1
                 [imf,res] = emd(squeeze(WDEC{1,i}(k,l,:,j)),'Display',0);
                 pad_size = max(0,n-size(imf,2));
                 pad = zeros(size(imf,1),pad_size);
                 padded_imf = cat(2,imf,pad);
-                EMD{1,i}(k,l,:,:,j) = padded_imf(:,1:n);
+                EMD{1,i}(k,l,:,:,j) = single(padded_imf(:,1:n));
             end
         end
+    end
+    if mod(i,100) == 0
+        stop = 1;
     end
 end
 %%
