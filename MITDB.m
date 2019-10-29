@@ -41,14 +41,14 @@ end
 
 %% Plot of subject 48 - both leads
 subplot(211)
-plot(tm1{1,1},sig1{1,48})
+plot(tm1{1,48},sig1{1,48})
 title('Subject 48, lead I')
 xlim([0 40])
 xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 
 subplot(212)
-plot(tm2{1,1},sig2{1,48})
+plot(tm2{1,48},sig2{1,48})
 title('Subject 48, lead II')
 xlim([0 40])
 xlabel('Time (s)')
@@ -263,10 +263,11 @@ for i = 1:length(Data)
     tensor{1,i} = cat(3,ecg_segments1{1,i},ecg_segments2{1,i});
 end
 
-%% Wavelet
-clear y1 y2 sig1 sig2 tm1 tm2 patient_segments1 patient_segments2 patient1 patient2 loc ecg_segments1 ecg_segments2 Data_128
+%% Wavelet + EMD
+clear y1 y2 sig1 sig2 tm1 tm2 patient_segments1 patient_segments2 patient1 ...
+    patient2 loc ecg_segments1 ecg_segments2 Data_128
 max_wavelet_level = 8;
-n=5;
+n = 5;
 
 for i = 1:length(Data)
     i
@@ -281,10 +282,28 @@ for i = 1:length(Data)
                 padded_imf = cat(2,imf,pad);
                 EMD{1,i}(k,l,:,:,j) = single(padded_imf(:,1:n));
             end
-        end
+        end      
     end
-    if mod(i,100) == 0
-        stop = 1;
+    if i == 24
+        save('/Volumes/TOSHIBA EXT/WDEC1','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/EMD1','EMD','-v7.3')
+        clear EMD WDEC
+    elseif i == 48
+        save('/Volumes/TOSHIBA EXT/WDEC2','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/EMD2','EMD','-v7.3')
+        clear EMD WDEC
     end
 end
-%%
+%% Permute EMDs
+
+% Permute all EMD arrays
+for i = 1:length(EMD)
+    perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]); 
+end
+
+%% Reshape EMDs
+
+% Reshape all the perm matrices
+for i = 1:length(EMD)
+    resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},4),size(perm{1,i},5));
+end
