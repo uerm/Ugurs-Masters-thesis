@@ -1,5 +1,5 @@
 %% Load ECG signals
-clear,clc
+%clear,clc
 
 % MITDB Data
 Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
@@ -17,6 +17,35 @@ end
 
 for i = 1:length(Data)
     [ann{i}, anntype{i}] = rdann(num2str(Data(i)),'atr');
+end
+%%
+ann_Length=length(anntype);
+
+ann_128 = zeros(0);
+
+for i=1:ann_Length
+    L=1;
+    K=1;
+    m=0;
+    for j=1:64:length(anntype{i})
+        if (L+128) > length(anntype{i})
+            continue;
+        end
+        ann_128{i}(K,:)=anntype{i}((64*m+1):(L+127));
+        L=L+64;
+        K=K+1;
+        m=m+1;
+    end
+end
+
+ANN = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(ann_128, 2), 'UniformOutput', false));
+
+for i = 1:length(ann_128)
+    sz{1,i} = size(ann_128{1,i});
+end
+
+for i = 1:length(Data_128)
+    szq{1,i} = size(Data_128{1,i});
 end
 
 %% Find waves and QRS complex
@@ -60,7 +89,7 @@ y2 = dwt_denoise2(sig2,9,Data); % Denoising Lead II
 
 %% Result of DWT filtering - plots
 subplot(221)
-plot(tm1{1,1},sig1{1,48})
+plot(tm1{1,48},sig1{1,48})
 title('Subject 48, lead I')
 xlim([0 40])
 xlabel('Time (s)')
@@ -77,7 +106,7 @@ title('Subject 48, Lead I')
 legend('DWT Filtering','Location','Best')
 
 subplot(223)
-plot(tm1{1,1},sig2{1,48})
+plot(tm1{1,48},sig2{1,48})
 title('Subject 48, lead II')
 xlim([0 40])
 xlabel('Time (s)')
@@ -118,7 +147,7 @@ RRI = zeros(0);
 
 % RR-interval without segmentation.
 for i = 1:length(Data)
-    RRI{1,i} = diff(QRS{1,i}); 
+    RRI{1,i} = diff(QRS{1,i});
 end
 
 % RR-interval with segmentation.
@@ -148,14 +177,14 @@ end
 
 % NN50
 NN50 = zeros(0);
-for i = 1:length(RRI) 
-n = 0; 
-    for num = 1:length(RRI{1,i})-1 
-        if (RRI{1,i}(num+1)-RRI{1,i}(num) > 50*10^(-3)*360) 
-        n = n+1; 
-        end 
-    end 
-NN50{i} = n; 
+for i = 1:length(RRI)
+    n = 0;
+    for num = 1:length(RRI{1,i})-1
+        if (RRI{1,i}(num+1)-RRI{1,i}(num) > 50*10^(-3)*360)
+            n = n+1;
+        end
+    end
+    NN50{i} = n;
 end
 
 % pNN50 (in percentage)
@@ -168,20 +197,34 @@ end
 % Mean of the RR intervals (of each row)
 m_RRIseg = cellfun(@(m)mean(m,2),RRIseg,'uni',0);
 
+m_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(m_RRIseg, 2), 'UniformOutput', false));
+
 % Standard deviation of RR intervals (of each row)
 s_RRIseg = cellfun(@(m)std(m,0,2),RRIseg,'uni',0);
+
+s_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(s_RRIseg, 2), 'UniformOutput', false));
 
 % RMSSD of RR interal segments
 r_RRIseg = cellfun(@(m)rms(diff(m,1,2),2),RRIseg,'uni',0);
 
+r_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(r_RRIseg, 2), 'UniformOutput', false));
+
 % nRMSSD of RR interval segments
 n_RRIseg = cellfun(@(x,y) x./y, r_RRIseg, m_RRIseg, 'uni',0);
+
+n_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(n_RRIseg, 2), 'UniformOutput', false));
 
 % Coefficient of variation of RR segments
 CV_RRIseg = cellfun(@(x,y) x./y, s_RRIseg, m_RRIseg, 'uni',0);
 
+CV_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(CV_RRIseg, 2), 'UniformOutput', false));
+
 % Minimal RR interval of segments.
 minRRIseg = cellfun(@(m) min(m,[],2), RRIseg,'uni',0);
+
+minRRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(minRRIseg, 2), 'UniformOutput', false));
+
+trainMatrix = [m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1];
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -282,7 +325,7 @@ for i = 1:length(Data)
                 padded_imf = cat(2,imf,pad);
                 EMD{1,i}(k,l,:,:,j) = single(padded_imf(:,1:n));
             end
-        end      
+        end
     end
     if i == 24
         save('/Volumes/TOSHIBA EXT/WDEC1','WDEC','-v7.3')
@@ -294,16 +337,80 @@ for i = 1:length(Data)
         clear EMD WDEC
     end
 end
+
+%%
+
+for i = 1:24
+    EMD2{1,i} = EMD1{1,i};
+end
+
+
+
+
+
+
 %% Permute EMDs
 
 % Permute all EMD arrays
 for i = 1:length(EMD)
-    perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]); 
+    perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]);
 end
 
 %% Reshape EMDs
 
 % Reshape all the perm matrices
 for i = 1:length(EMD)
-    resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},4),size(perm{1,i},5));
+    resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},5),size(perm{1,i},4));
 end
+
+%% Zero padding the tensor to max length
+
+[~,b,~] = cellfun(@size, resh);
+
+idx_pad = max(b) - b;
+
+for idx = 1:length(resh)
+    resh1{1,idx} = padarray(resh{1,idx}, [0 idx_pad(idx) 0],0,'post');
+end
+
+%% Train autoencoder
+tmp = 5;
+hidden_size = 50;
+
+for i = 1:length(EMD)
+    acode1{1,i} = trainAutoencoder(squeeze(resh{1,i}(1,:,:)),hidden_size);
+end
+
+%
+for i=1:5
+    test_signal = [];
+    test_signal(:,1) = resh{1}(i,:,1);
+    
+    pred = predict(acode1{1,i},test_signal);
+    
+    figure()
+    plot(pred)
+    hold on
+    plot(test_signal)
+    hold off
+end
+
+%% Mean squared error - n = 50 and n = 100
+for i = 1:length(EMD)
+    %Xrec{1,i} = predict(acode{1,i},squeeze(resh{1,i}(1,:,:)));
+    %ms{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec{1,i});
+    Xrec1{1,i} = predict(acode1{1,i},squeeze(resh{1,i}(1,:,:)));
+    ms1{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec1{1,i});
+end
+
+%mss = [ms;ms1];
+
+%%
+
+for i = 1:5
+    figure()
+    plot(squeeze(resh{1,i}(i,:,1)),'r');
+    hold on
+    plot(Xrec{1,i},'g');
+end
+
