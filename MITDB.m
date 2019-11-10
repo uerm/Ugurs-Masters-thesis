@@ -1,5 +1,5 @@
 %% Load ECG signals
-%clear,clc
+clear,clc
 
 % MITDB Data
 Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
@@ -13,12 +13,12 @@ for i = 1:length(Data)
     [sig2{i}, Fs2, tm2{i}] = rdsamp(num2str(Data(i)),2); % Lead II
 end
 
-%% Read annotations
+%% Read annotations and segment annotation
 
 for i = 1:length(Data)
-    [ann{i}, anntype{i}] = rdann(num2str(Data(i)),'atr');
+    [ann{i}, anntype{i}, subtype{i}, chan{i}, num{i}, comments{i}] = rdann(num2str(Data(i)),'atr');
 end
-%%
+
 ann_Length=length(anntype);
 
 ann_128 = zeros(0);
@@ -39,14 +39,6 @@ for i=1:ann_Length
 end
 
 ANN = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(ann_128, 2), 'UniformOutput', false));
-
-for i = 1:length(ann_128)
-    sz{1,i} = size(ann_128{1,i});
-end
-
-for i = 1:length(Data_128)
-    szq{1,i} = size(Data_128{1,i});
-end
 
 %% Find waves and QRS complex
 
@@ -307,7 +299,7 @@ for i = 1:length(Data)
 end
 
 %% Wavelet + EMD
-clear y1 y2 sig1 sig2 tm1 tm2 patient_segments1 patient_segments2 patient1 ...
+clear sig1 sig2 tm1 tm2 patient_segments1 patient_segments2 patient1 ...
     patient2 loc ecg_segments1 ecg_segments2 Data_128
 max_wavelet_level = 8;
 n = 5;
@@ -374,43 +366,49 @@ for idx = 1:length(resh)
 end
 
 %% Train autoencoder
-tmp = 5;
 hidden_size = 50;
 
 for i = 1:length(EMD)
     acode1{1,i} = trainAutoencoder(squeeze(resh{1,i}(1,:,:)),hidden_size);
 end
 
-%
-for i=1:5
+save('/Volumes/TOSHIBA EXT/acode2','acode2','-v7.3')
+
+%%
+for i=21:30
     test_signal = [];
     test_signal(:,1) = resh{1}(i,:,1);
     
-    pred = predict(acode1{1,i},test_signal);
+    size(test_signal);
+    %pred = predict(acode1{1,i},test_signal);
     
     figure()
-    plot(pred)
-    hold on
+    %plot(pred)
+    %hold on
     plot(test_signal)
-    hold off
+    %hold off
 end
 
 %% Mean squared error - n = 50 and n = 100
-for i = 1:length(EMD)
-    %Xrec{1,i} = predict(acode{1,i},squeeze(resh{1,i}(1,:,:)));
-    %ms{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec{1,i});
-    Xrec1{1,i} = predict(acode1{1,i},squeeze(resh{1,i}(1,:,:)));
-    ms1{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec1{1,i});
+for i = 1:24
+    Xrec1{1,i} = predict(acode1{1,i},squeeze(resh{1,1}(i,:,1))');
+    ms1{1,i} = mse(squeeze(resh{1,1}(i,:,1)) - Xrec1{1,i});
+    %Xrec2{1,i} = predict(acode2{1,i},squeeze(resh{1,i}(1,:,:)));
+    %ms2{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec2{1,i});
 end
 
 %mss = [ms;ms1];
 
 %%
 
-for i = 1:5
+
+
+for i = 1:10 %length(EMD)
     figure()
-    plot(squeeze(resh{1,i}(i,:,1)),'r');
+    plot(resh{1,i}(i,:,1),'r');
     hold on
-    plot(Xrec{1,i},'g');
+    plot(Xrec1{1,i},'g');
+    %enc = ['fig',num2str(i),'.png'];
+    %saveas(cgca,enc);
 end
 
