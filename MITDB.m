@@ -76,9 +76,10 @@ xlabel('Time (s)')
 ylabel('Amplitude (mV)')
 
 %% Denoising with DWT - Lead I and Lead II
+tic
 y1 = dwt_denoise1(sig1,9,Data); % Denoising Lead I
 y2 = dwt_denoise2(sig2,9,Data); % Denoising Lead II
-
+t = toc;
 %% Result of DWT filtering - plots
 subplot(221)
 plot(tm1{1,48},sig1{1,48})
@@ -168,7 +169,6 @@ for i = 1:length(Data)
 end
 
 % NN50
-NN50 = zeros(0);
 for i = 1:length(RRI)
     n = 0;
     for num = 1:length(RRI{1,i})-1
@@ -344,38 +344,48 @@ end
 %% Permute EMDs
 
 % Permute all EMD arrays
-for i = 1:length(EMD)
-    perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]);
+for i = 1:length(EMD2)
+    perm{1,i} = permute(EMD2{1,i},[2,4,5,1,3]);
 end
 
 %% Reshape EMDs
 
 % Reshape all the perm matrices
-for i = 1:length(EMD)
+for i = 1:length(EMD2)
     resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},5),size(perm{1,i},4));
 end
 
 %% Zero padding the tensor to max length
-
+tic
 [~,b,~] = cellfun(@size, resh);
 
 idx_pad = max(b) - b;
 
 for idx = 1:length(resh)
-    resh1{1,idx} = padarray(resh{1,idx}, [0 idx_pad(idx) 0],0,'post');
+    idx
+    resh_padded{1,idx} = padarray(resh{1,idx}, [0 idx_pad(idx) 0],0,'post');
+    
+    if idx == 24
+        save('/Volumes/TOSHIBA EXT/MITDB-features/resh_padded1','resh_padded','-v7.3')
+        clear resh_padded
+    elseif idx == 48
+        save('/Volumes/TOSHIBA EXT/MITDB-features/resh_padded2','resh_padded','-v7.3')
+        clear resh_padded
+    end
 end
+t = toc;
 
 %% Train autoencoder
-hidden_size = 50;
+hidden_size = 500;
 
-for i = 1:length(EMD)
-    acode1{1,i} = trainAutoencoder(squeeze(resh{1,i}(1,:,:)),hidden_size);
-end
+%for i = 1:length(EMD)
+    acode1{1} = trainAutoencoder(squeeze(resh{1}(11,:,:)),hidden_size);
+%end
 
-save('/Volumes/TOSHIBA EXT/acode2','acode2','-v7.3')
+%save('/Volumes/TOSHIBA EXT/acode2','acode2','-v7.3')
 
-%%
-for i=21:30
+%% Test to see which DWT or EMD should be discarded
+for i=11
     test_signal = [];
     test_signal(:,1) = resh{1}(i,:,1);
     
@@ -391,8 +401,8 @@ end
 
 %% Mean squared error - n = 50 and n = 100
 for i = 1:24
-    Xrec1{1,i} = predict(acode1{1,i},squeeze(resh{1,1}(i,:,1))');
-    ms1{1,i} = mse(squeeze(resh{1,1}(i,:,1)) - Xrec1{1,i});
+    Xrec1{1,i} = predict(acode1{1},squeeze(resh{1,1}(11,:,1))');
+    ms1{1,i} = mse(squeeze(resh{1,1}(11,:,1)) - Xrec1{1,i}');
     %Xrec2{1,i} = predict(acode2{1,i},squeeze(resh{1,i}(1,:,:)));
     %ms2{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec2{1,i});
 end
@@ -403,12 +413,11 @@ end
 
 
 
-for i = 1:10 %length(EMD)
-    figure()
-    plot(resh{1,i}(i,:,1),'r');
-    hold on
-    plot(Xrec1{1,i},'g');
-    %enc = ['fig',num2str(i),'.png'];
-    %saveas(cgca,enc);
-end
+figure()
+plot(resh{1,1}(11,:,1),'r');
+hold on
+plot(Xrec1{1,1},'g');
+%enc = ['fig',num2str(i),'.png'];
+%saveas(cgca,enc);
 
+ 
