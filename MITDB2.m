@@ -1,6 +1,5 @@
 %% Load ECG signals
 clear,clc
-
 addpath '/Users/ugurerman95/Documents/mcode' % Add path to WFDB toolbox
 
 % MITDB Data
@@ -52,7 +51,7 @@ xlabel('Samples')
 ylabel('Amplitude (mV)')
 
 %% Denoising with DWT - Lead I and Lead II
- 
+
 y1 = dwt_denoise1(sig1_new,8,Data); % Denoising Lead I
 y2 = dwt_denoise2(sig2_new,8,Data); % Denoising Lead II
 
@@ -91,16 +90,54 @@ title('Subject 48, Lead II')
 legend('DWT Filtering','Location','Best')
 %% Find R peaks and segment R peaks with 50 % overlap
 
+% for i = 1:length(Data)
+%     [qrs_amp_raw{i},qrs_i_raw{i},delay{i}] = pan_tompkin(y1{1,i},180,0);
+% end
+
 for i = 1:length(Data)
-    [qrs_amp_raw{i},qrs_i_raw{i},delay{i}] = pan_tompkin(y1{1,i},180,0);
+    %ecgpuwave(num2str(Data(i)),'test');
+    pwaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'p');
+    twaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'t');
+    QRS{i} = rdann(num2str(Data(i)),'test',[],[],[],'N');
+    [wave{i},loc{i}] = rdann(num2str(Data(i)),'test',[],[],[],'');
 end
 
-Data_128 = segmentation(qrs_i_raw);
 
+%% Correcting R peak indeces
+% Divide each peak index with 2 since resampling to fs/2
+tic
+for i = 1:length(Data)
+    QRS{1,i} = round(QRS{1,i}./2);
+    ann{1,i} = round(ann{1,i}./2);
+    wave{1,i} = round(wave{1,i}./2);
+    pwaves{1,i} = round(pwaves{1,i}./2);
+    twaves{1,i} = round(twaves{1,i}./2);
+end
+toc
+%%
+tic
+anntype_new = annotation2(Data,loc,wave,ann,anntype);
+
+AL = labelling(anntype_new,Data);
+
+AL_128 = segmentation(AL);
+
+M = cellfun(@(m)mode(m,2), AL_128,'uni',0);
+
+MM = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(M, 2), 'UniformOutput', false));
+
+toc
+%% Segment the R peaks in 128 R peaks per segment
+% Use the segmentation helper function
+Data_128 = segmentation(QRS);
 
 %% RR-interval and HRV features
+% Use the FeatureExtraction helper function
+%[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg] = FeatureExtraction(QRS,Data_128,Data);
 
-[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg] = FeatureExtraction(qrs_i_raw,Data_128,Data);
+[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
+   m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
+   trainMatrix] = FeatureExtraction(QRS,Data_128,Data);
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -120,7 +157,6 @@ ylabel('Amplitude (mV)')
 
 [ecg_segments1, ecg_segments2, tensor] = TensorConstruct(y1,y2,Data_128);
 
-
 %% Plot of ECG with zero padding
 figure()
 subplot(211)
@@ -136,21 +172,23 @@ title('Segmentation (first 128 R peaks), subject 1, lead II, with zero padding')
 
 figure()
 subplot(211)
-plot(ecg_segments1{1,1}(1,18450:end))
+plot(ecg_segments1{1,1}(1,18480:end))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, lead I, zeros')
 subplot(212)
-plot(ecg_segments2{1,1}(1,18450:end))
+plot(ecg_segments2{1,1}(1,18480:end))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, lead II, zeros')
 
 
 %% Wavelet + EMD
-clear ecg_segments1 ecg_segments2 Data_128 y1 y2 sig1_new sig2_new
+tic
+clear ecg_segments1 ecg_segments2 Data_128 y1 y2 sig1_new sig2_new ...
+    twaves loc wave pwaves
 max_wavelet_level = 8;
-n = 5;
+nn = 5;
 
 for i = 1:length(Data)
     i
@@ -160,42 +198,27 @@ for i = 1:length(Data)
             WDEC{1,i}(k,:,:,j) = single(modwt(tensor{1,i}(k,:,j),max_wavelet_level,'db4'));
             for l =1:max_wavelet_level+1
                 [imf,res] = emd(squeeze(WDEC{1,i}(k,l,:,j)),'Display',0);
-                pad_size = max(0,n-size(imf,2));
+                pad_size = max(0,nn-size(imf,2));
                 pad = zeros(size(imf,1),pad_size);
                 padded_imf = cat(2,imf,pad);
-                EMD{1,i}(k,l,:,:,j) = single(padded_imf(:,1:n));
+                EMD{1,i}(k,l,:,:,j) = single(padded_imf(:,1:nn));
             end
         end
     end
-    if i == 24
-        save('/Volumes/TOSHIBA EXT/WDEC11','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/EMD11','EMD','-v7.3')
-        clear EMD WDEC
-    elseif i == 48
-        save('/Volumes/TOSHIBA EXT/WDEC22','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/EMD22','EMD','-v7.3')
-        clear EMD WDEC
-    end
 end
-
-%%
-
-for i = 1:24
-    EMD2{1,i} = EMD1{1,i};
-end
-
+t = toc;
 
 %% Permute EMDs
 
 % Permute all EMD arrays
-for i = 1:length(EMD2)
-    perm{1,i} = permute(EMD2{1,i},[2,4,5,1,3]);
+for i = 1:length(EMD)
+    perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]);
 end
 
 %% Reshape EMDs
 
 % Reshape all the perm matrices
-for i = 1:length(EMD2)
+for i = 1:length(perm)
     resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},5),size(perm{1,i},4));
 end
 
@@ -205,63 +228,44 @@ tic
 
 idx_pad = max(b) - b;
 
-for idx = 1:length(resh)
-    idx
-    resh_padded{1,idx} = padarray(resh{1,idx}, [0 idx_pad(idx) 0],0,'post');
-    
-    if idx == 24
-        save('/Volumes/TOSHIBA EXT/MITDB-features/resh_padded1','resh_padded','-v7.3')
-        clear resh_padded
-    elseif idx == 48
-        save('/Volumes/TOSHIBA EXT/MITDB-features/resh_padded2','resh_padded','-v7.3')
-        clear resh_padded
-    end
+for index = 1:length(resh)
+    resh_padded{1,index} = padarray(resh{1,index}, [0 idx_pad(index) 0],0,'post');    
 end
 t = toc;
 
-%% Train autoencoder
-hidden_size = 500;
+%% Concatenate zeropadded 3D arrays along 3rd axis
+stacked = cat(3,resh_padded{:});
 
-%for i = 1:length(EMD)
-    acode1{1} = trainAutoencoder(squeeze(resh{1}(11,:,:)),hidden_size);
-%end
+%% Calculate statistical features of DWT+EMD
 
-%save('/Volumes/TOSHIBA EXT/acode2','acode2','-v7.3')
+mu = double(mean(stacked,2)); % mean
+st = double(std(stacked,0,2)); % standard deviation
+v = double(var(stacked,0,2)); % variance
+mest = double(max(stacked,[],2)); % maximum
+mindst = double(min(stacked,[],2)); % minimum
 
-%% Test to see which DWT or EMD should be discarded
-for i=11
-    test_signal = [];
-    test_signal(:,1) = resh{1}(i,:,1);
-    
-    size(test_signal);
-    %pred = predict(acode1{1,i},test_signal);
-    
-    figure()
-    %plot(pred)
-    %hold on
-    plot(test_signal)
-    %hold off
+med = nan(90,1,1633); % median
+skew = nan(90,1,1633); % skewness
+kurt = nan(90,1,1633); % kurtosis
+
+for i = 1:size(med,1)
+    med(i,:,:) = double(median(stacked(i,:,:),2));
+    skew(i,:,:) = double(skewness(stacked(i,:,:),1,2));
+    kurt(i,:,:) = double(kurtosis(stacked(i,:,:),1,2));
 end
-
-%% Mean squared error - n = 50 and n = 100
-for i = 1:24
-    Xrec1{1,i} = predict(acode1{1},squeeze(resh{1,1}(11,:,1))');
-    ms1{1,i} = mse(squeeze(resh{1,1}(11,:,1)) - Xrec1{1,i}');
-    %Xrec2{1,i} = predict(acode2{1,i},squeeze(resh{1,i}(1,:,:)));
-    %ms2{1,i} = mse(squeeze(resh{1,i}(1,:,:)) - Xrec2{1,i});
-end
-
-%mss = [ms;ms1];
-
 %%
+feat_cat = cat(2,mu,st,v,skew,kurt);
 
+%% Train with only HRV features
 
+trainMatrix1 = [trainMatrix MM];
 
-figure()
-plot(resh{1,1}(11,:,1),'r');
-hold on
-plot(Xrec1{1,1},'g');
-%enc = ['fig',num2str(i),'.png'];
-%saveas(cgca,enc);
+%% Train with only DWT+EMD statistical features
 
- 
+feat_cat = feat_cat';
+
+trainMatrix2 = [feat_cat MM];
+
+%% Train with HRV features + DWT+EMD features
+
+trainMatrix3 = [feat_cat trainMatrix MM];
