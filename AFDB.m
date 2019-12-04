@@ -14,21 +14,43 @@ for i = 1:length(Data1)
     [sig_2{i}, Fs2, tm_2{i}] = rdsamp(num2str(Data1(i),'%05.f'),2); % Lead II
 end
 
+%% Resample signal to fs/2
+
+[p,q] = rat(125/250);
+
+for i = 1:length(Data1)
+    sig1_new{i} = resample(sig_1{i}, p, q);
+    sig2_new{i} = resample(sig_2{i}, p, q);
+end
+clear sig_1 sig_2 tm_1 tm_2 p q Fs1 Fs2
+
+
 %% Read annotations
 
 for i = 1:length(Data1)
-    [ann{i}, anntype{i}] = rdann(num2str(Data1(i),'%05.f'),'atr');
+    [ann{i}, anntype{i}, subtype{i}, chan{i}, num{i}, comments{i}] = rdann(num2str(Data1(i),'%05.f'),'atr');
 end
 
 %% Find waves
 
 for i = 1:length(Data1)
-    ecgpuwave(num2str(Data1(i),'%05.f'),'test');
+    %ecgpuwave(num2str(Data1(i),'%05.f'),'test');
     pwaves1{i} = rdann(num2str(Data1(i),'%05.f'),'test',[],[],[],'p');
     twaves1{i} = rdann(num2str(Data1(i),'%05.f'),'test',[],[],[],'t');
     QRS1{i} = rdann(num2str(Data1(i),'%05.f'),'test',[],[],[],'N');
     [wave1{i},loc1{i}] = rdann(num2str(Data1(i),'%05.f'),'test',[],[],[],'');
 end
+
+%%
+tic
+for i = 1:length(Data1)
+    QRS1{1,i} = round(QRS1{1,i}./2);
+   % ann{1,i} = round(ann{1,i}./2);
+    wave1{1,i} = round(wave1{1,i}./2);
+    pwaves1{1,i} = round(pwaves1{1,i}./2);
+    twaves1{1,i} = round(twaves1{1,i}./2);
+end
+toc
 
 %% Plot of subject 1 - both leads
 subplot(211)
@@ -47,9 +69,11 @@ ylabel('Amplitude (mV)')
 
 
 %% Denoising with DWT - Lead I and Lead II
-y1 = dwt_denoise1(sig_1,9,Data1); % Denoising Lead I
-y2 = dwt_denoise2(sig_2,9,Data1); % Denoising Lead II
+tic
+y1 = dwt1(sig1_new,8,Data1); % Denoising Lead I
+y2 = dwt2(sig2_new,8,Data1); % Denoising Lead II
 
+toc
 %% Result of DWT filtering - plots
 figure()
 subplot(221)
@@ -86,140 +110,29 @@ ylabel('Amplitude (mV)')
 title('Subject 1, Lead II')
 legend('DWT Filtering','Location','Best')
 
-%% Segmentation of RR intervals with 50% overlap
-QRS_Length=length(QRS1);
+%% Segment the R peaks in 128 R peaks per segment
+% Use the segmentation helper function
+Data_128 = segmentation(QRS1);
 
-Data_128 = zeros(0);
+%% RR-interval and HRV features
+% Use the FeatureExtraction helper function
+%[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg] = FeatureExtraction(QRS,Data_128,Data);
 
-for i=1:QRS_Length
-    L=1;
-    K=1;
-    m=0;
-    for j=1:64:length(QRS1{i})
-        if (L+128) > length(QRS1{i})
-            continue;
-        end
-        Data_128{i}(K,:)=QRS1{i}((64*m+1):(L+127));
-        L=L+64;
-        K=K+1;
-        m=m+1;
-    end
-end
-
-%% RR-interval - with and without segmentation
-RRI = zeros(0);
-
-% RR-interval without segmentation.
-for i = 1:length(Data1)
-    RRI{1,i} = diff(QRS1{1,i}); 
-end
-
-% RR-interval with segmentation.
-%fun = @(m)diff(m,1,2);
-RRIseg = cellfun(@(m)diff(m,1,2),Data_128,'uni',0);
+[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
+   m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
+   trainMatrix] = FeatureExtraction(QRS1,Data_128,Data1);
 
 
-%% Calculate HRV features - without segmentation
-M_RRI = zeros(0);
-SDNN = zeros(0);
-RMSSD = zeros(0);
-nRMSSD = zeros(0);
-NN50 = zeros(0);
-pNN50 = zeros(0);
-CV = zeros(0);
-minRRI = zeros(0);
-
-for i = 1:length(Data1)
-    M_RRI{1,i} = mean(RRI{1,i}); % Mean of RR intervals for each subject.
-    SDNN{1,i} = std(RRI{1,i}); % Standard deviation of all RR intervals for each subject.
-    RMSSD{1,i} = rms(diff(RRI{1,i})); % RMSSD of RR intervals diff for each subject.
-    nRMSSD{1,i} = RMSSD{1,i}/M_RRI{1,i}; % nRMSSD of RR intervals.
-    CV{1,i} = SDNN{1,i}/M_RRI{1,i}; % Coefficient of variation.
-    minRRI{1,i} = min(RRI{1,i}); % Minimal RR interval.
-end
-
-% NN50
-NN50 = zeros(0);
-for i = 1:length(RRI) 
-n = 0; 
-    for num = 1:length(RRI{1,i})-1 
-        if (RRI{1,i}(num+1)-RRI{1,i}(num) > 50*10^(-3)*250) 
-        n = n+1; 
-        end 
-    end 
-NN50{i} = n; 
-end
-
-% pNN50 (in percentage)
-for i = 1:length(RRI)
-    pNN50{1,i} = (NN50{1,i}/length(RRI{1,i}))*100;
-end
-
-
-%% Calculate HRV features - with segmentation
-
-% Mean of the RR intervals (of each row)
-m_RRIseg = cellfun(@(m)mean(m,2),RRIseg,'uni',0);
-
-% Standard deviation of RR intervals (of each row)
-s_RRIseg = cellfun(@(m)std(m,0,2),RRIseg,'uni',0);
-
-% RMSSD of RR interal segments
-r_RRIseg = cellfun(@(m)rms(diff(m,1,2),2),RRIseg,'uni',0);
-
-% nRMSSD of RR interval segments
-n_RRIseg = cellfun(@(x,y) x./y, r_RRIseg, m_RRIseg, 'uni',0);
-
-% Coefficient of variation of RR segments
-CV_RRIseg = cellfun(@(x,y) x./y, s_RRIseg, m_RRIseg, 'uni',0);
-
-% Minimal RR interval of segments.
-minRRIseg = cellfun(@(m) min(m,[],2), RRIseg,'uni',0);
-
-%% Cutting the filtered signal in segments - Lead I, all patients
-ecg_segments1 = {};
-for p = 1:length(y1)
-    patient1 = y1{1,p};
-    peaks1 = Data_128{1,p};
-    seg_lengths1 = peaks1(:,end)-peaks1(:,1)+1;
-    max_len1 = max(seg_lengths1);
-    patient_segments1 = zeros(0,max_len1);
-    for i = 1:length(peaks1(:,1))
-        seg1 = patient1(peaks1(i,1):peaks1(i,end));
-        pad1 = zeros(1,max_len1-length(seg1));
-        padded_seg1 = [seg1,pad1];
-        patient_segments1(end+1,:) = padded_seg1;
-    end
-    ecg_segments1{end+1} = patient_segments1;
-end
-
-%% Cutting the filtered signal in segments - Lead II, all patients
-
-ecg_segments2 = {};
-for p = 1:length(y2)
-    patient2 = y2{1,p};
-    peaks2 = Data_128{1,p};
-    seg_lengths2 = peaks2(:,end)-peaks2(:,1)+1;
-    max_len2 = max(seg_lengths2);
-    patient_segments2 = zeros(0,max_len2);
-    for i = 1:length(peaks2(:,1))
-        seg2 = patient2(peaks2(i,1):peaks2(i,end));
-        pad2 = zeros(1,max_len2-length(seg2));
-        padded_seg2 = [seg2,pad2];
-        patient_segments2(end+1,:) = padded_seg2;
-    end
-    ecg_segments2{end+1} = patient_segments2;
-end
-
-%% Construct tensor for each patient
-
-for i = 1:length(Data1)
-    tensor{1,i} = cat(3,ecg_segments1{1,i},ecg_segments2{1,i});
-end
+%% Constructing tensor
+tic
+tensor = TensorConstruct(y1,y2,Data_128);
+toc
 
 %% Wavelet + EMD
-clear y1 y2 sig_1 sig_2 tm_1 tm_2 patient_segments1 patient_segments2 patient1 ...
-    patient2 loc ecg_segments1 ecg_segments2 Data_128
+%clear y1 y2 sig_1 sig_2 tm_1 tm_2 patient_segments1 patient_segments2 patient1 ...
+ %   patient2 loc ecg_segments1 ecg_segments2 Data_128
+
+tic
 max_wavelet_level = 8;
 n = 5;
 
@@ -239,29 +152,31 @@ for i = 1:length(Data1)
         end      
     end
     if i == 4
-        save('/Volumes/TOSHIBA EXT/AFDB-features/WDEC1','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/EMD1','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC1','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD1','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 8
-        save('/Volumes/TOSHIBA EXT/AFDB-features/WDEC2','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/EMD2','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC2','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD2','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 12
-        save('/Volumes/TOSHIBA EXT/AFDB-features/WDEC3','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/EMD3','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC3','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD3','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 16
-        save('/Volumes/TOSHIBA EXT/AFDB-features/WDEC4','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/EMD4','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC4','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD4','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 20
-        save('/Volumes/TOSHIBA EXT/AFDB-features/WDEC5','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/EMD5','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC5','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD5','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 23
-        save('/Volumes/TOSHIBA EXT/AFDB-features/WDEC6','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/EMD6','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC6','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD6','EMD','-v7.3')
         clear EMD WDEC
     end
 end
+
+t = toc;
 %%

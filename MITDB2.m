@@ -14,6 +14,9 @@ for i = 1:length(Data)
     [sig2{i}, Fs2, tm2{i}] = rdsamp(num2str(Data(i)),2); % Lead II
 end
 
+
+%%
+
 %% Downsampling
 [p,q] = rat(180/360);
 
@@ -108,7 +111,7 @@ end
 tic
 for i = 1:length(Data)
     QRS{1,i} = round(QRS{1,i}./2);
-    ann{1,i} = round(ann{1,i}./2);
+   % ann{1,i} = round(ann{1,i}./2);
     wave{1,i} = round(wave{1,i}./2);
     pwaves{1,i} = round(pwaves{1,i}./2);
     twaves{1,i} = round(twaves{1,i}./2);
@@ -253,6 +256,7 @@ for i = 1:size(med,1)
     skew(i,:,:) = double(skewness(stacked(i,:,:),1,2));
     kurt(i,:,:) = double(kurtosis(stacked(i,:,:),1,2));
 end
+
 %%
 feat_cat = cat(2,mu,st,v,skew,kurt);
 
