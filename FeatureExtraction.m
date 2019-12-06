@@ -1,4 +1,6 @@
-function [m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg] = FeatureExtraction(qrs,seg,data)
+function [m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
+   m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
+   trainMatrix] = FeatureExtraction(qrs,seg,data)
 
 D = length(data);
 
@@ -50,32 +52,32 @@ end
 % Mean of the RR intervals (of each row)
 m_RRIseg = cellfun(@(m)mean(m,2),RRIseg,'uni',0);
 
-%m_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(m_RRIseg, 2), 'UniformOutput', false));
+m_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(m_RRIseg, 2), 'UniformOutput', false));
 
 % Standard deviation of RR intervals (of each row)
 s_RRIseg = cellfun(@(m)std(m,0,2),RRIseg,'uni',0);
 
-%s_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(s_RRIseg, 2), 'UniformOutput', false));
+s_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(s_RRIseg, 2), 'UniformOutput', false));
 
 % RMSSD of RR interal segments
 r_RRIseg = cellfun(@(m)rms(diff(m,1,2),2),RRIseg,'uni',0);
 
-%r_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(r_RRIseg, 2), 'UniformOutput', false));
+r_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(r_RRIseg, 2), 'UniformOutput', false));
 
 % nRMSSD of RR interval segments
 n_RRIseg = cellfun(@(x,y) x./y, r_RRIseg, m_RRIseg, 'uni',0);
 
-%n_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(n_RRIseg, 2), 'UniformOutput', false));
+n_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(n_RRIseg, 2), 'UniformOutput', false));
 
 % Coefficient of variation of RR segments
 CV_RRIseg = cellfun(@(x,y) x./y, s_RRIseg, m_RRIseg, 'uni',0);
 
-%CV_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(CV_RRIseg, 2), 'UniformOutput', false));
+CV_RRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(CV_RRIseg, 2), 'UniformOutput', false));
 
 % Minimal RR interval of segments.
 minRRIseg = cellfun(@(m) min(m,[],2), RRIseg,'uni',0);
 
-%minRRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(minRRIseg, 2), 'UniformOutput', false));
+minRRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(minRRIseg, 2), 'UniformOutput', false));
 
-%trainMatrix = [m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1];
+trainMatrix = [m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1];
 

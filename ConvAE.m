@@ -76,9 +76,9 @@ for epoch = 1:numEpochs
     end
     elapsedTime = toc;
     
-    [z] = reconstruction(encoderNet, XTest);
-    xPred = sigmoid(forward(decoderNet, z)); % fjern evt sigmoid
-    elbo = mse(XTest, xPred);
+    [z, zMean, zLogvar] = sampling(encoderNet, XTest);
+    xPred = sigmoid(forward(decoderNet, z));
+    elbo = ELBOloss(XTest, xPred, zMean, zLogvar);
     disp("Epoch : "+epoch+" Test ELBO loss = "+gather(extractdata(elbo))+...
         ". Time taken for epoch = "+ elapsedTime + "s")    
 end

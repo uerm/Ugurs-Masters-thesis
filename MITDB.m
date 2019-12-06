@@ -1,6 +1,8 @@
 %% Load ECG signals
 clear,clc
 
+addpath '/Users/ugurerman95/Documents/mcode' % Add path to WFDB toolbox
+
 % MITDB Data
 Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
     114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 200, 201, 202, 203,...
@@ -62,24 +64,23 @@ end
 
 %% Plot of subject 48 - both leads
 subplot(211)
-plot(tm1{1,48},sig1{1,48})
+plot(tm1{1,48}, sig1{1,48})
 title('Subject 48, lead I')
 xlim([0 40])
-xlabel('Time (s)')
+xlabel('Samples')
 ylabel('Amplitude (mV)')
 
 subplot(212)
-plot(tm2{1,48},sig2{1,48})
+plot(tm1{1,48}, sig2{1,48})
 title('Subject 48, lead II')
 xlim([0 40])
-xlabel('Time (s)')
+xlabel('Samples')
 ylabel('Amplitude (mV)')
 
 %% Denoising with DWT - Lead I and Lead II
-tic
 y1 = dwt_denoise1(sig1,9,Data); % Denoising Lead I
 y2 = dwt_denoise2(sig2,9,Data); % Denoising Lead II
-t = toc;
+
 %% Result of DWT filtering - plots
 subplot(221)
 plot(tm1{1,48},sig1{1,48})

@@ -1,4 +1,4 @@
-function [ecg_segments1, ecg_segments2, tensor] = TensorConstruct(signal1,signal2,segment)
+function tensor = TensorConstruct(signal1,signal2,segment)
 
 % Lead I
 ecg_segments1 = {};

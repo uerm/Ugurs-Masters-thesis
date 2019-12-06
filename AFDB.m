@@ -77,35 +77,35 @@ toc
 %% Result of DWT filtering - plots
 figure()
 subplot(221)
-plot(tm_1{1,1},sig_1{1,1})
+plot(sig1_new{1,1})
 title('Subject 1, lead I')
-xlim([0 40])
-xlabel('Time (s)')
+xlim([0 3000])
+xlabel('Samples')
 ylabel('Amplitude (mV)')
 legend('No Filtering','Location','Best')
 
 
 subplot(222)
-plot(tm_1{1,1},sig_2{1,1})
+plot(sig2_new{1,1})
 title('Subject 1, lead II')
-xlim([0 40])
-xlabel('Time (s)')
+xlim([0 3000])
+xlabel('Samples')
 ylabel('Amplitude (mV)')
 legend('No Filtering','Location','Best')
 
 
 subplot(223)
-plot(tm_1{1,1},y1{1,1})
-xlim([1 40])
-xlabel('Time (s)')
+plot(y1{1,1})
+xlim([0 3000])
+xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, Lead I')
 legend('DWT Filtering','Location','Best')
 
 subplot(224)
-plot(tm_2{1,1},y2{1,1})
-xlim([1 40])
-xlabel('Time (s)')
+plot(y2{1,1})
+xlim([0 3000])
+xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, Lead II')
 legend('DWT Filtering','Location','Best')
@@ -136,7 +136,7 @@ tic
 max_wavelet_level = 8;
 n = 5;
 
-for i = 1:length(Data1)
+for i = 1:12
     i
     patient = tensor{1,i};
     for k = 1:size(patient,1)
@@ -152,28 +152,28 @@ for i = 1:length(Data1)
         end      
     end
     if i == 4
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC1','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD1','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC1','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD1','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 8
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC2','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD2','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC2','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD2','EMD','-v7.3')
         clear EMD WDEC
     elseif i == 12
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC3','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD3','EMD','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC3','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD3','EMD','-v7.3')
         clear EMD WDEC
-    elseif i == 16
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC4','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD4','EMD','-v7.3')
+    %elseif i == 16
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC4','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD4','EMD','-v7.3')
         clear EMD WDEC
-    elseif i == 20
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC5','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD5','EMD','-v7.3')
+    %elseif i == 20
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC5','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD5','EMD','-v7.3')
         clear EMD WDEC
-    elseif i == 23
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/WDEC6','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/OriginalFS/EMD6','EMD','-v7.3')
+    %elseif i == 23
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC6','WDEC','-v7.3')
+        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD6','EMD','-v7.3')
         clear EMD WDEC
     end
 end
