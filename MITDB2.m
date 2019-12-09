@@ -1,6 +1,6 @@
 %% Load ECG signals
 clear,clc
-addpath '/Users/ugurerman95/Documents/mcode' % Add path to WFDB toolbox
+addpath 'C:\Users\Dell\Desktop\Test\mit-bih-arrhythmia-database-1.0.0' % Add path to WFDB toolbox
 
 % MITDB Data
 Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
@@ -14,9 +14,6 @@ for i = 1:length(Data)
     [sig2{i}, Fs2, tm2{i}] = rdsamp(num2str(Data(i)),2); % Lead II
 end
 
-
-%%
-
 %% Downsampling
 [p,q] = rat(180/360);
 
@@ -29,13 +26,56 @@ clear sig1 sig2 tm1 tm2 p q Fs1 Fs2
 %% Read annotations
 
 for i = 1:length(Data)
-    [ann{i}, anntype{i}] = rdann(num2str(Data(i)),'atr');
+    [ann{i},anntype{i},subtype{i},chan{i},num{i},comments{i}] = rdann(num2str(Data(i)),'atr');
 end
-%% Segment annotations
 
-ann_128 = segmentation(anntype);
+comments2 = comments;
+for i = 1:length(Data)
+    for j = 2:length(comments2{1,i})
+        if isempty(comments2{1,i}{j,:})
+            comments2{1,i}{j,:} = comments2{1,i}{j-1,:};
+        end
+    end
+end
 
-%ANN = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(ann_128, 2), 'UniformOutput', false));
+%% Find R peaks and segment R peaks with 50 % overlap
+
+tic
+for i = 1:length(Data)
+    %ecgpuwave(num2str(Data(i)),'test');
+    pwaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'p');
+    twaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'t');
+    QRS{i} = rdann(num2str(Data(i)),'test',[],[],[],'N');
+    [wave{i},loc{i}] = rdann(num2str(Data(i)),'test',[],[],[],'');
+end
+toc
+
+%% Correcting R peak indeces
+% Divide each peak index with 2 since resampling to fs/2
+tic
+for i = 1:length(Data)
+    QRS{1,i} = round(QRS{1,i}./2);
+    ann{1,i} = round(ann{1,i}./2);
+    wave{1,i} = round(wave{1,i}./2);
+    %pwaves{1,i} = round(pwaves{1,i}./2);
+    %twaves{1,i} = round(twaves{1,i}./2);
+end
+toc
+%%
+tic
+anntype_new = annotation2(Data,loc,wave,ann,comments2);
+
+AL = labelling2(anntype_new,Data);
+
+AL_128 = segmentation(AL);
+
+M = cellfun(@(m)mode(m,2), AL_128,'uni',0);
+
+MM = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(M, 2), 'UniformOutput', false));
+
+AL_all = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(AL, 2), 'UniformOutput', false));
+
+toc
 
 
 %% Plot of subject 48 - both leads
@@ -91,52 +131,15 @@ xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 48, Lead II')
 legend('DWT Filtering','Location','Best')
-%% Find R peaks and segment R peaks with 50 % overlap
-
-% for i = 1:length(Data)
-%     [qrs_amp_raw{i},qrs_i_raw{i},delay{i}] = pan_tompkin(y1{1,i},180,0);
-% end
-
-for i = 1:length(Data)
-    %ecgpuwave(num2str(Data(i)),'test');
-    pwaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'p');
-    twaves{i} = rdann(num2str(Data(i)),'test',[],[],[],'t');
-    QRS{i} = rdann(num2str(Data(i)),'test',[],[],[],'N');
-    [wave{i},loc{i}] = rdann(num2str(Data(i)),'test',[],[],[],'');
-end
 
 
-%% Correcting R peak indeces
-% Divide each peak index with 2 since resampling to fs/2
-tic
-for i = 1:length(Data)
-    QRS{1,i} = round(QRS{1,i}./2);
-   % ann{1,i} = round(ann{1,i}./2);
-    wave{1,i} = round(wave{1,i}./2);
-    pwaves{1,i} = round(pwaves{1,i}./2);
-    twaves{1,i} = round(twaves{1,i}./2);
-end
-toc
-%%
-tic
-anntype_new = annotation2(Data,loc,wave,ann,anntype);
 
-AL = labelling(anntype_new,Data);
-
-AL_128 = segmentation(AL);
-
-M = cellfun(@(m)mode(m,2), AL_128,'uni',0);
-
-MM = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(M, 2), 'UniformOutput', false));
-
-toc
 %% Segment the R peaks in 128 R peaks per segment
 % Use the segmentation helper function
 Data_128 = segmentation(QRS);
 
 %% RR-interval and HRV features
 % Use the FeatureExtraction helper function
-%[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg] = FeatureExtraction(QRS,Data_128,Data);
 
 [m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
    m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
@@ -260,16 +263,62 @@ end
 %%
 feat_cat = cat(2,mu,st,v,skew,kurt);
 
-%% Train with only HRV features
+%% Train with only HRV features (also with ADASYN)
 
 trainMatrix1 = [trainMatrix MM];
+% trainMatrix11 = trainMatrix1;
+% indices1 = find(trainMatrix11(:,end)==2);
+% trainMatrix11(indices1,:) = [];
 
-%% Train with only DWT+EMD statistical features
+feat1 = trainMatrix1(:,1:end-1);
+
+MM1 = trainMatrix1(:,end);
+
+[out_featuresSyn1, out_labelsSyn1] = ADASYN(feat1, MM1, 1,...
+    5, 5, true);
+
+t1 = [out_featuresSyn1 double(out_labelsSyn1)];
+
+trainMatrix11 = [trainMatrix1;t1];
+
+
+%% Train with only DWT+EMD statistical features (also with ADASYN)
 
 feat_cat = feat_cat';
 
 trainMatrix2 = [feat_cat MM];
+%trainMatrix22= trainMatrix2;
+%indices2 = find(trainMatrix22(:,end)==2);
+%trainMatrix22(indices2,:) = [];
 
-%% Train with HRV features + DWT+EMD features
+
+feat2 = trainMatrix2(:,1:end-1);
+
+MM2 = trainMatrix2(:,end);
+
+[out_featuresSyn2, out_labelsSyn2] = ADASYN(feat2, MM2, 1,...
+    5, 5, true);
+
+t2 = [out_featuresSyn2 double(out_labelsSyn2)];
+
+trainMatrix22 = [trainMatrix2;t2];
+
+%% Train with HRV features + DWT+EMD features (also with ADASYN)
 
 trainMatrix3 = [feat_cat trainMatrix MM];
+%trainMatrix4 = trainMatrix3;
+%indices3 = find(trainMatrix4(:,end)==2);
+%trainMatrix4(indices3,:) = [];
+
+feat3 = trainMatrix3(:,1:end-1);
+
+MM3 = trainMatrix3(:,end);
+
+[out_featuresSyn3, out_labelsSyn3] = ADASYN(feat3, MM3, 1,...
+    5, 5, true);
+
+t3 = [out_featuresSyn3 double(out_labelsSyn3)];
+
+trainMatrix33 = [trainMatrix3;t3];
+
+
