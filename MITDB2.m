@@ -35,6 +35,7 @@ for i = 1:length(Data)
         if isempty(comments2{1,i}{j,:})
             comments2{1,i}{j,:} = comments2{1,i}{j-1,:};
         end
+        
     end
 end
 
@@ -57,23 +58,24 @@ for i = 1:length(Data)
     QRS{1,i} = round(QRS{1,i}./2);
     ann{1,i} = round(ann{1,i}./2);
     wave{1,i} = round(wave{1,i}./2);
-    %pwaves{1,i} = round(pwaves{1,i}./2);
-    %twaves{1,i} = round(twaves{1,i}./2);
 end
 toc
 %%
 tic
+
+% "Cut" the labels according to the R peaks
 anntype_new = annotation2(Data,loc,wave,ann,comments2);
 
-AL = labelling2(anntype_new,Data);
+AL = labelling2(anntype_new,Data); % Label the data
 
-AL_128 = segmentation(AL);
+AL_128 = segmentation(AL,10); % Define segment length
 
-M = cellfun(@(m)mode(m,2), AL_128,'uni',0);
+M = threshold(AL_128,10); % Threshold 30%
 
+%M = cellfun(@(m)mode(m,2), AL_128,'uni',0); % Majority voting
+
+% Stack the labels for classification
 MM = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(M, 2), 'UniformOutput', false));
-
-AL_all = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(AL, 2), 'UniformOutput', false));
 
 toc
 
@@ -136,32 +138,32 @@ legend('DWT Filtering','Location','Best')
 
 %% Segment the R peaks in 128 R peaks per segment
 % Use the segmentation helper function
-Data_128 = segmentation(QRS);
+Data_10 = segmentation(QRS,10);
 
 %% RR-interval and HRV features
 % Use the FeatureExtraction helper function
 
 [m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
    m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
-   trainMatrix] = FeatureExtraction(QRS,Data_128,Data);
+   trainMatrix] = FeatureExtraction(QRS,Data_10,Data);
 
 
 %% Segmentation of filtered signal based on R peak location
 subplot(211)
-plot(y1{1,1}(1:Data_128{1}(1,end)))
-title('Segmentation (first 128 R peaks), subject 1, lead I, no zero padding')
+plot(y1{1,1}(1:Data_10{1}(1,end)))
+title('Segmentation (first 10 R peaks), subject 1, lead I, no zero padding')
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 subplot(212)
-plot(y2{1,1}(1:Data_128{1}(1,end)))
-title('Segmentation (first 128 R peaks), subject 1, lead II, no zero padding')
+plot(y2{1,1}(1:Data_10{1}(1,end)))
+title('Segmentation (first 10 R peaks), subject 1, lead II, no zero padding')
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 
 %% Cutting the filtered signal in segments - Both leads, all patients
 % Constructing tensor for each patient
 
-[ecg_segments1, ecg_segments2, tensor] = TensorConstruct(y1,y2,Data_128);
+[ecg_segments1, ecg_segments2, tensor] = TensorConstruct(y1,y2,Data_10);
 
 %% Plot of ECG with zero padding
 figure()
@@ -178,12 +180,12 @@ title('Segmentation (first 128 R peaks), subject 1, lead II, with zero padding')
 
 figure()
 subplot(211)
-plot(ecg_segments1{1,1}(1,18480:end))
+plot(ecg_segments1{1,1}(1,1200:end))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, lead I, zeros')
 subplot(212)
-plot(ecg_segments2{1,1}(1,18480:end))
+plot(ecg_segments2{1,1}(1,1200:end))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, lead II, zeros')
@@ -191,8 +193,8 @@ title('Subject 1, lead II, zeros')
 
 %% Wavelet + EMD
 tic
-clear ecg_segments1 ecg_segments2 Data_128 y1 y2 sig1_new sig2_new ...
-    twaves loc wave pwaves
+clear ecg_segments1 ecg_segments2 Data_10 y1 y2 sig1_new sig2_new ...
+    twaves pwaves
 max_wavelet_level = 8;
 nn = 5;
 
@@ -212,22 +214,24 @@ for i = 1:length(Data)
         end
     end
 end
-t = toc;
+toc
 
 %% Permute EMDs
-
+tic
 % Permute all EMD arrays
 for i = 1:length(EMD)
     perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]);
 end
-
+clear EMD
+toc
 %% Reshape EMDs
-
+tic 
 % Reshape all the perm matrices
 for i = 1:length(perm)
     resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},5),size(perm{1,i},4));
 end
-
+clear perm
+toc
 %% Zero padding the tensor to max length
 tic
 [~,b,~] = cellfun(@size, resh);
@@ -235,33 +239,37 @@ tic
 idx_pad = max(b) - b;
 
 for index = 1:length(resh)
+    index
     resh_padded{1,index} = padarray(resh{1,index}, [0 idx_pad(index) 0],0,'post');    
 end
 t = toc;
 
 %% Concatenate zeropadded 3D arrays along 3rd axis
+clear resh
 stacked = cat(3,resh_padded{:});
+clear resh_padded
 
 %% Calculate statistical features of DWT+EMD
+tic
+mu = squeeze(double(mean(stacked,2))); % mean
+st = squeeze(double(std(stacked,0,2))); % standard deviation
+v = squeeze(double(var(stacked,0,2))); % variance
 
-mu = double(mean(stacked,2)); % mean
-st = double(std(stacked,0,2)); % standard deviation
-v = double(var(stacked,0,2)); % variance
-mest = double(max(stacked,[],2)); % maximum
-mindst = double(min(stacked,[],2)); % minimum
+skew = nan(90,1,size(stacked,3)); % skewness
+kurt = nan(90,1,size(stacked,3)); % kurtosis
 
-med = nan(90,1,1633); % median
-skew = nan(90,1,1633); % skewness
-kurt = nan(90,1,1633); % kurtosis
-
-for i = 1:size(med,1)
-    med(i,:,:) = double(median(stacked(i,:,:),2));
+for i = 1:size(skew,1)
     skew(i,:,:) = double(skewness(stacked(i,:,:),1,2));
     kurt(i,:,:) = double(kurtosis(stacked(i,:,:),1,2));
 end
+toc
+
+med = squeeze(med);
+skew = squeeze(skew);
+kurt = squeeze(kurt);
 
 %%
-feat_cat = cat(2,mu,st,v,skew,kurt);
+feat_cat = cat(1,mu,st,v,skew,kurt);
 
 %% Train with only HRV features (also with ADASYN)
 
@@ -320,5 +328,3 @@ MM3 = trainMatrix3(:,end);
 t3 = [out_featuresSyn3 double(out_labelsSyn3)];
 
 trainMatrix33 = [trainMatrix3;t3];
-
-

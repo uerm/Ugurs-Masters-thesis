@@ -125,7 +125,7 @@ Data_128 = segmentation(QRS1);
 
 %% Constructing tensor
 tic
-tensor = TensorConstruct(y1,y2,Data_128);
+[ecg_segments1, ecg_segments2, tensor] = TensorConstruct(y1,y2,Data_128);
 toc
 
 %% Wavelet + EMD
@@ -150,31 +150,6 @@ for i = 1:12
                 EMD{1,i}(k,l,:,:,j) = single(padded_imf(:,1:n));
             end
         end      
-    end
-    if i == 4
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC1','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD1','EMD','-v7.3')
-        clear EMD WDEC
-    elseif i == 8
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC2','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD2','EMD','-v7.3')
-        clear EMD WDEC
-    elseif i == 12
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC3','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD3','EMD','-v7.3')
-        clear EMD WDEC
-    %elseif i == 16
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC4','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD4','EMD','-v7.3')
-        clear EMD WDEC
-    %elseif i == 20
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC5','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD5','EMD','-v7.3')
-        clear EMD WDEC
-    %elseif i == 23
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/WDEC6','WDEC','-v7.3')
-        save('/Volumes/TOSHIBA EXT/AFDB-features/Downsampled/EMD6','EMD','-v7.3')
-        clear EMD WDEC
     end
 end
 
