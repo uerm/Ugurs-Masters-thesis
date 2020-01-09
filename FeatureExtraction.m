@@ -80,4 +80,3 @@ minRRIseg = cellfun(@(m) min(m,[],2), RRIseg,'uni',0);
 minRRIseg1 = cell2mat(cellfun(@(col) vertcat(col{:}), num2cell(minRRIseg, 2), 'UniformOutput', false));
 
 trainMatrix = [m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1];
-
