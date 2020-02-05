@@ -33,5 +33,5 @@ for j = 1:length(Data)
     
     global_ann_sig{j} = or(or(anno_sig_1,anno_sig_2),anno_sig_3);
     
-    %global_ann_sig{j} = double(global_ann_sig{j});
+    global_ann_sig{j} = double(global_ann_sig{j});
 end

@@ -8,26 +8,32 @@ Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
     205, 207, 208, 209, 210, 212, 213, 214, 215, 217, 219, 220, 221, 222,...
     223, 228, 230, 231, 232, 233, 234];
 
-
 for i = 1:length(Data)
     [sig1{i}, Fs1, tm1{i}] = rdsamp(num2str(Data(i)),1); % Lead I
     [sig2{i}, Fs2, tm2{i}] = rdsamp(num2str(Data(i)),2); % Lead II
 end
 
+
+%% Denoising with DWT - Lead I and Lead II
+
+y1 = dwt_denoise1(sig1,8,Data); % Denoising Lead I
+y2 = dwt_denoise2(sig2,8,Data); % Denoising Lead II
+
 %% Downsampling
-[p,q] = rat(180/360);
+[p,q] = rat(125/360);
 
 for i = 1:length(Data)
-    sig1_new{i} = resample(sig1{i}, p, q);
-    sig2_new{i} = resample(sig2{i}, p, q);
+    y1_new{i} = resample(y1{i}, p, q);
+    y2_new{i} = resample(y2{i}, p, q);
 end
-clear sig1 sig2 tm1 tm2 p q Fs1 Fs2
+clear y1 y2 tm1 tm2 p q
 
 %% Read annotations
 
 for i = 1:length(Data)
     [ann{i},anntype{i},subtype{i},chan{i},num{i},comments{i}] = rdann(num2str(Data(i)),'atr');
 end
+
 
 comments2 = comments;
 for i = 1:length(Data)
@@ -55,9 +61,9 @@ toc
 % Divide each peak index with 2 since resampling to fs/2
 tic
 for i = 1:length(Data)
-    QRS{1,i} = round(QRS{1,i}./2);
-    ann{1,i} = round(ann{1,i}./2);
-    wave{1,i} = round(wave{1,i}./2);
+    QRS{1,i} = round(QRS{1,i}.*(125/360));
+    ann{1,i} = round(ann{1,i}.*(125/360));
+    wave{1,i} = round(wave{1,i}.*(125/360));
 end
 toc
 %%
@@ -68,9 +74,11 @@ anntype_new = annotation2(Data,loc,wave,ann,comments2);
 
 AL = labelling2(anntype_new,Data); % Label the data
 
-AL_128 = segmentation(AL,10); % Define segment length
+AL_128 = segmentation(AL,20); % Define segment length
 
 M = threshold(AL_128,10); % Threshold 30%
+
+% Use the "M" variables depending on the threshold that will be used.
 
 %M = cellfun(@(m)mode(m,2), AL_128,'uni',0); % Majority voting
 
@@ -95,15 +103,11 @@ xlim([0 4000])
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 
-%% Denoising with DWT - Lead I and Lead II
-
-y1 = dwt_denoise1(sig1_new,8,Data); % Denoising Lead I
-y2 = dwt_denoise2(sig2_new,8,Data); % Denoising Lead II
 
 %% Result of DWT filtering - plots
 subplot(221)
-plot(sig1_new{1,48})
-title('Subject 48, lead I')
+plot(sig1{1,48})
+title('Subject 234, Lead I')
 xlim([0 7200])
 xlabel('Samples')
 ylabel('Amplitude (mV)')
@@ -115,12 +119,12 @@ plot(y1{1,48})
 xlim([0 7200])
 xlabel('Samples')
 ylabel('Amplitude (mV)')
-title('Subject 48, Lead I')
+title('Subject 234, Lead I')
 legend('DWT Filtering','Location','Best')
 
 subplot(223)
-plot(sig2_new{1,48})
-title('Subject 48, lead II')
+plot(sig2{1,48})
+title('Subject 234, Lead II')
 xlim([0 7200])
 xlabel('Samples')
 ylabel('Amplitude (mV)')
@@ -131,21 +135,35 @@ plot(y2{1,48})
 xlim([0 7200])
 xlabel('Samples')
 ylabel('Amplitude (mV)')
-title('Subject 48, Lead II')
+title('Subject 234, Lead II')
 legend('DWT Filtering','Location','Best')
 
-
+%%
+% 
+% y1_new = zeros(0);
+% y2_new = zeros(0);
+% 
+% for i = 1:length(Data)
+%     y1_new{i} = y1{i};
+%     y2_new{i} = y2{i};
+% 
+%     y1_new{i}(y1_new{i}> 1.5) = 1.5;
+%     y2_new{i}(y2_new{i}> 1.5) = 1.5;
+% end
 
 %% Segment the R peaks in 128 R peaks per segment
 % Use the segmentation helper function
-Data_10 = segmentation(QRS,10);
+% segmentation(data,n), where data is the index of the R peaks and n is the
+% length of the segment.
+Data_10 = segmentation(QRS,20);
 
 %% RR-interval and HRV features
-% Use the FeatureExtraction helper function
+% Use the FeatureExtraction helper function to extract HRV features.
 
-[m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
-   m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
-   trainMatrix] = FeatureExtraction(QRS,Data_10,Data);
+Fs = Fs1*(125/Fs1);
+
+[~, ~, ~, ~, ~, ~, ~, ~, ~, ~, ~, ~,...
+   trainMatrix] = FeatureExtraction(QRS,Data_10,Data,Fs);
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -163,7 +181,16 @@ ylabel('Amplitude (mV)')
 %% Cutting the filtered signal in segments - Both leads, all patients
 % Constructing tensor for each patient
 
-[ecg_segments1, ecg_segments2, tensor] = TensorConstruct(y1,y2,Data_10);
+[ecg_segments1, ecg_segments2, ~] = TensorConstruct(y1_new,y2_new,Data_10);
+
+for i = 1:length(Data)
+    ecg1{i} = (ecg_segments1{i} - mean(ecg_segments1{i},2));
+    ecg2{i} = (ecg_segments2{i} - mean(ecg_segments2{i},2));
+end
+
+for i = 1:length(Data)
+    tensor{i} = cat(3,ecg1{i},ecg2{i});
+end
 
 %% Plot of ECG with zero padding
 figure()
@@ -171,21 +198,21 @@ subplot(211)
 plot(ecg_segments1{1,1}(1,:))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
-title('Segmentation (first 128 R peaks), subject 1, lead I, with zero padding')
+title('Segmentation (first 20 R peaks), subject 100, Lead I, with zero padding')
 subplot(212)
 plot(ecg_segments2{1,1}(1,:))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
-title('Segmentation (first 128 R peaks), subject 1, lead II, with zero padding')
+title('Segmentation (first 20 R peaks), subject 100, Lead II, with zero padding')
 
 figure()
 subplot(211)
-plot(ecg_segments1{1,1}(1,1200:end))
+plot(ecg_segments1{1,1}(1,2500:end))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, lead I, zeros')
 subplot(212)
-plot(ecg_segments2{1,1}(1,1200:end))
+plot(ecg_segments2{1,1}(1,2500:end))
 xlabel('Samples')
 ylabel('Amplitude (mV)')
 title('Subject 1, lead II, zeros')
@@ -193,8 +220,8 @@ title('Subject 1, lead II, zeros')
 
 %% Wavelet + EMD
 tic
-clear ecg_segments1 ecg_segments2 Data_10 y1 y2 sig1_new sig2_new ...
-    twaves pwaves
+% clear y1 y2 sig1_new sig2_new ...
+%     twaves pwaves
 max_wavelet_level = 8;
 nn = 5;
 
@@ -222,7 +249,6 @@ tic
 for i = 1:length(EMD)
     perm{1,i} = permute(EMD{1,i},[2,4,5,1,3]);
 end
-clear EMD
 toc
 %% Reshape EMDs
 tic 
@@ -230,10 +256,10 @@ tic
 for i = 1:length(perm)
     resh{1,i} = reshape(perm{1,i},[],size(perm{1,i},5),size(perm{1,i},4));
 end
-clear perm
 toc
-%% Zero padding the tensor to max length
-tic
+
+%%
+
 [~,b,~] = cellfun(@size, resh);
 
 idx_pad = max(b) - b;
@@ -264,19 +290,17 @@ for i = 1:size(skew,1)
 end
 toc
 
-med = squeeze(med);
 skew = squeeze(skew);
 kurt = squeeze(kurt);
 
 %%
+% All statistical features concatenated into one variable.
 feat_cat = cat(1,mu,st,v,skew,kurt);
 
 %% Train with only HRV features (also with ADASYN)
 
+% No ADASYN
 trainMatrix1 = [trainMatrix MM];
-% trainMatrix11 = trainMatrix1;
-% indices1 = find(trainMatrix11(:,end)==2);
-% trainMatrix11(indices1,:) = [];
 
 feat1 = trainMatrix1(:,1:end-1);
 
@@ -287,18 +311,17 @@ MM1 = trainMatrix1(:,end);
 
 t1 = [out_featuresSyn1 double(out_labelsSyn1)];
 
+% ADASYN
 trainMatrix11 = [trainMatrix1;t1];
 
 
 %% Train with only DWT+EMD statistical features (also with ADASYN)
 
+% Statistical features transposed to match the other features
 feat_cat = feat_cat';
 
+% No ADASYN
 trainMatrix2 = [feat_cat MM];
-%trainMatrix22= trainMatrix2;
-%indices2 = find(trainMatrix22(:,end)==2);
-%trainMatrix22(indices2,:) = [];
-
 
 feat2 = trainMatrix2(:,1:end-1);
 
@@ -309,14 +332,13 @@ MM2 = trainMatrix2(:,end);
 
 t2 = [out_featuresSyn2 double(out_labelsSyn2)];
 
+% ADASYN
 trainMatrix22 = [trainMatrix2;t2];
 
 %% Train with HRV features + DWT+EMD features (also with ADASYN)
 
+% No ADASYN
 trainMatrix3 = [feat_cat trainMatrix MM];
-%trainMatrix4 = trainMatrix3;
-%indices3 = find(trainMatrix4(:,end)==2);
-%trainMatrix4(indices3,:) = [];
 
 feat3 = trainMatrix3(:,1:end-1);
 
@@ -327,4 +349,5 @@ MM3 = trainMatrix3(:,end);
 
 t3 = [out_featuresSyn3 double(out_labelsSyn3)];
 
+% ADASYN
 trainMatrix33 = [trainMatrix3;t3];
