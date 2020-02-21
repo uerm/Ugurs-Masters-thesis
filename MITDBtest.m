@@ -3,10 +3,7 @@ clear,clc
 addpath 'C:\Users\Dell\Desktop\Test\mit-bih-arrhythmia-database-1.0.0' % Add path to WFDB toolbox
 
 % MITDB Data
-Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
-    114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 200, 201, 202, 203,...
-    205, 207, 208, 209, 210, 212, 213, 214, 215, 217, 219, 220, 221, 222,...
-    223, 228, 230, 231, 232, 233, 234];
+Data = [103, 104, 105, 118, 123, 202, 205, 210, 212, 219];
 
 for i = 1:length(Data)
     [sig1{i}, Fs1, ~] = rdsamp(num2str(Data(i)),1); % Lead I
@@ -32,7 +29,7 @@ clear y1 y2 p q
 %% Read annotations
 
 for i = 1:length(Data)
-    [ann{i},anntype{i},~,~,~,comments{i}] = rdann(num2str(Data(i)),'atr');
+    [ann2{i},anntype2{i},~,~,~,comments{i}] = rdann(num2str(Data(i)),'atr');
 end
 
 
@@ -62,16 +59,16 @@ toc
 % Divide each peak index with 2 since resampling to fs/2
 tic
 for i = 1:length(Data)
-    QRS{1,i} = round(QRS{1,i}.*(125/360));
-    ann{1,i} = round(ann{1,i}.*(125/360));
-    wave{1,i} = round(wave{1,i}.*(125/360));
+    QRS2{1,i} = round(QRS2{1,i}.*(125/360));
+    ann2{1,i} = round(ann2{1,i}.*(125/360));
+    wave2{1,i} = round(wave2{1,i}.*(125/360));
 end
 toc
 %%
 tic
 
 % "Cut" the labels according to the R peaks
-anntype_new = annotation2(Data,loc,wave,ann,comments2);
+anntype_new = annotation2(Data,loc2,wave2,ann2,comments2);
 
 AL = labelling2(anntype_new,Data); % Label the data
 
@@ -79,14 +76,14 @@ toc
 
 
 %%
-% For each cell of AL, find the non-2's
-keepIndices = cellfun(@(x)x~=2,AL,'UniformOutput',false);
-
-% Keep the elements of AL that are non-2's
-AL2  = cellfun(@(x,y)x(y),AL, keepIndices,'UniformOutput',false);
-
-% Keep the elements of QRS that are non-2's
-QRS2 = cellfun(@(x,y)x(y),QRS,keepIndices,'UniformOutput',false);
+% % For each cell of AL, find the non-2's
+% keepIndices = cellfun(@(x)x~=2,AL,'UniformOutput',false);
+% 
+% % Keep the elements of AL that are non-2's
+% AL2  = cellfun(@(x,y)x(y),AL, keepIndices,'UniformOutput',false);
+% 
+% % Keep the elements of QRS that are non-2's
+% QRS2 = cellfun(@(x,y)x(y),QRS,keepIndices,'UniformOutput',false);
 
 
 
@@ -174,7 +171,7 @@ legend('DWT Filtering','Location','Best')
 % Use the segmentation helper function
 % segmentation(data,n), where data is the index of the R peaks and n is the
 % length of the segment.
-Data_10 = segmentation(QRS,20);
+Data_10 = segmentation(QRS2,20);
 
 %Data_10_2 = Data_10(~cellfun('isempty',Data_10));
 
@@ -186,7 +183,7 @@ Data_10 = segmentation(QRS,20);
 Fs = Fs1*(125/Fs1);
 
 [~, ~, ~, ~, ~, ~, ~, ~, ~, ~, ~, ~,...
-   trainMatrix] = FeatureExtraction(QRS,Data_10,Data,Fs);
+   trainMatrix] = FeatureExtraction(QRS2,Data_10,Data,Fs);
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -216,7 +213,7 @@ ecg2 = cellfun(@(m) normalize(m,2), ecg_segments2,'uni',0);
 %     ecg2{i} = (ecg_segments2{i} - mean(ecg_segments2{i},2));
 % end
 
-for i = 1:length(Data_10)
+for i = 1:length(Data)
     tensor{i} = cat(3,ecg1{i},ecg2{i});
 end
 
@@ -247,10 +244,13 @@ title('Subject 100, Lead II, with zeros')
 
 
 %% Wavelet + EMD
+tic
+% clear y1 y2 sig1_new sig2_new ...
+%     twaves pwaves
 max_wavelet_level = 8;
 nn = 5;
 
-for i = 1:length(tensor)
+for i = 1:length(Data)
     i
     patient = tensor{1,i};
     for k = 1:size(patient,1)
@@ -301,7 +301,7 @@ stacked = cat(3,resh_padded{:});
 clear resh_padded
 
 %% Calculate statistical features of DWT+EMD
-
+tic
 mu = squeeze(double(mean(stacked,2))); % mean
 st = squeeze(double(std(stacked,0,2))); % standard deviation
 v = squeeze(double(var(stacked,0,2))); % variance
@@ -309,12 +309,12 @@ v = squeeze(double(var(stacked,0,2))); % variance
 skew = nan(90,1,size(stacked,3)); % skewness
 kurt = nan(90,1,size(stacked,3)); % kurtosis
 
-for i = 1:size(skew,1)
+parfor i = 1:size(skew,1)
+    i
     skew(i,:,:) = double(skewness(stacked(i,:,:),1,2));
     kurt(i,:,:) = double(kurtosis(stacked(i,:,:),1,2));
 end
-
-clear stacked;
+toc
 
 skew = squeeze(skew);
 kurt = squeeze(kurt);
@@ -344,7 +344,7 @@ trainMatrix11 = [trainMatrix1;t1];
 %% Train with only DWT+EMD statistical features (also with ADASYN)
 
 % Statistical features transposed to match the other features
-feat_cat128 = feat_cat128';
+feat_cat20 = feat_cat';
 
 % No ADASYN
 trainMatrix2 = [feat_cat MM];
@@ -364,7 +364,7 @@ trainMatrix22 = [trainMatrix2;t2];
 %% Train with HRV features + DWT+EMD features (also with ADASYN)
 
 % No ADASYN
-trainMatrix3 = [feat_cat128 trainMatrix MM];
+trainMatrix3 = [feat_cat20 trainMatrix MM];
 
 feat3 = trainMatrix3(:,1:end-1);
 
@@ -380,9 +380,9 @@ trainMatrix33 = [trainMatrix3;t3];
 
 %% Create scatter plots of data
 
-x = trainMatrix33(:,2);
-y = trainMatrix33(:,1);
-scatterhist(x,y,'Group',trainMatrix33(:,end),'Kernel','on','Location','SouthEast',...
+x = trainMatrix3(:,452);
+y = trainMatrix3(:,451);
+scatterhist(x,y,'Group',trainMatrix3(:,end),'Kernel','on','Location','SouthEast',...
     'Direction','out','Color','br')
 xlabel('Standard Deviation of RRi (F452)')
 ylabel('Mean RRi (F451)')
@@ -396,4 +396,268 @@ scatterhist(x,y,'Group',trainMatrix33(:,end),'Kernel','on','Location','SouthEast
 xlabel('Standard Deviation of RRi (F452)')
 ylabel('Mean RRi (F451)')
 title('MITDB, majority vote, M = 20 beats, after ADASYN')
+
+
+%% Testing - confusion matrix and predictions
+
+
+trainMatrix4 = trainMatrix3;
+
+
+% Linear SVM
+[preds1,scores1] = predict(classificationLinearSVM20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds1);
+title('MITDB, Linear SVM, Test')
+
+% Quadratic SVM
+[preds2,scores2] = predict(classificationQuadSVM20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds2);
+title('MITDB, Quadratic SVM, Test')
+
+% Cubic SVM
+[preds3,scores3] = predict(classificationCubicSVM20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds3);
+title('MITDB, Cubic SVM, Test')
+
+
+% RBF SVM
+[preds4,scores4] = predict(classificationRBFSVM20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds4);
+title('MITDB, RBF SVM, Test')
+
+
+% 3 kNN
+[preds5,scores5] = predict(classification3KNN20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds5);
+title('MITDB, kNN - k = 3, Test')
+
+
+% 5 kNN
+[preds6,scores6] = predict(classification5KNN20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds6);
+title('MITDB, kNN - k = 5, Test')
+
+
+% 7 kNN
+[preds7,scores7] = predict(classification7KNN20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds7);
+title('MITDB, kNN - k = 7, Test')
+
+
+% 9 kNN
+[preds8,scores8] = predict(classification9KNN20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds8);
+title('MITDB, kNN - k = 9, Test')
+
+
+% RF, 5 Trees
+[preds9,scores9] = predict(classification5Tree20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds9);
+title('MITDB, RF - 5 Trees, Test')
+
+
+% RF, 10 Trees
+[preds10,scores10] = predict(classification10Tree20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds10);
+title('MITDB, RF - 10 Trees, Test')
+
+
+% RF, 20 Trees
+[preds11,scores11] = predict(classification20Tree20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds11);
+title('MITDB, RF - 20 Trees, Test')
+
+
+% RF, 30 Trees
+[preds12,scores12] = predict(classification30Tree20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds12);
+title('MITDB, RF - 30 Trees, Test')
+
+
+% RF, 40 Trees
+[preds13,scores13] = predict(classification40Tree20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds13);
+title('MITDB, RF - 40 Trees, Test')
+
+
+% RF, 50 Trees
+[preds14,scores14] = predict(classification50Tree20ADASYN,trainMatrix4(:,1:end-1));
+
+figure()
+confusionchart(trainMatrix4(:,end),preds14);
+title('MITDB, RF - 50 Trees, Test')
+
+
+
+
+
+%% ROC plots
+
+[x1,y1,~,auc1] = perfcurve(trainMatrix4(:,end),scores1(:,2),1);
+
+figure()
+plot(x1,y1,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, Linear SVM, Test')
+
+
+[x2,y2,~,auc2] = perfcurve(trainMatrix4(:,end),scores2(:,2),1);
+
+figure()
+plot(x2,y2,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, Quadratic SVM, Test')
+
+
+[x3,y3,~,auc3] = perfcurve(trainMatrix4(:,end),scores3(:,2),1);
+
+figure()
+plot(x3,y3,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, Cubic SVM, Test')
+
+
+[x4,y4,~,auc4] = perfcurve(trainMatrix4(:,end),scores4(:,2),1);
+
+figure()
+plot(x4,y4,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RBF SVM, Test')
+
+
+[x5,y5,~,auc5] = perfcurve(trainMatrix4(:,end),scores5(:,2),1);
+
+figure()
+plot(x5,y5,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, kNN - k = 3, Test')
+
+
+[x6,y6,~,auc6] = perfcurve(trainMatrix4(:,end),scores6(:,2),1);
+
+figure()
+plot(x6,y6,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, kNN - k = 5, Test')
+
+
+[x7,y7,~,auc7] = perfcurve(trainMatrix4(:,end),scores7(:,2),1);
+
+figure()
+plot(x7,y7,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, kNN - k = 7, Test')
+
+
+
+[x8,y8,~,auc8] = perfcurve(trainMatrix4(:,end),scores8(:,2),1);
+
+figure()
+plot(x8,y8,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, kNN - k = 9, Test')
+
+
+
+[x9,y9,~,auc9] = perfcurve(trainMatrix4(:,end),scores9(:,2),1);
+
+figure()
+plot(x9,y9,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RF 5 Trees, Test')
+
+
+[x10,y10,~,auc10] = perfcurve(trainMatrix4(:,end),scores10(:,2),1);
+
+figure()
+plot(x10,y10,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RF 10 Trees, Test')
+
+
+
+[x11,y11,~,auc11] = perfcurve(trainMatrix4(:,end),scores11(:,2),1);
+
+figure()
+plot(x11,y11,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RF 20 Trees, Test')
+
+
+[x12,y12,~,auc12] = perfcurve(trainMatrix4(:,end),scores12(:,2),1);
+
+figure()
+plot(x12,y12,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RF 30 Trees, Test')
+
+
+
+[x13,y13,~,auc13] = perfcurve(trainMatrix4(:,end),scores13(:,2),1);
+
+figure()
+plot(x13,y13,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RF 40 Trees, Test')
+
+
+[x14,y14,~,auc14] = perfcurve(trainMatrix4(:,end),scores14(:,2),1);
+
+figure()
+plot(x14,y14,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, MITDB, RF 50 Trees, Test')
+
+
+AUC = [auc1;auc2;auc3;auc4;auc5;auc6;auc7;auc8;auc9;auc10;auc11;auc12;...
+    auc13;auc14];
+
+T_AUC = table(AUC);
+
+
+
+
+
+
+
 

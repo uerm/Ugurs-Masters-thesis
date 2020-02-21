@@ -4,14 +4,11 @@ clear,clc
 % Use '%05.f' to add leading zeros to number which is transformed to
 % string by num2str.
 
-Data1 = [04015, 04043, 04048, 04126, 04746, 04908, 04936, 05091, 05121, 05261 ...
-    06426, 06453, 06995, 07162, 07859, 07879, 07910, 08215, 08219, 08378,...
-    08405, 08434, 08455];
-
+Data1 = [07910, 08215, 08219, 08378, 08405, 08434, 08455];
 
 for i = 1:length(Data1)
-    [sig_1{i}, Fs1, tm_1{i}] = rdsamp(num2str(Data1(i),'%05.f'),1); % Lead I
-    [sig_2{i}, Fs2, tm_2{i}] = rdsamp(num2str(Data1(i),'%05.f'),2); % Lead II
+    [sig_1{i}, Fs1, ~] = rdsamp(num2str(Data1(i),'%05.f'),1); % Lead I
+    [sig_2{i}, Fs2, ~] = rdsamp(num2str(Data1(i),'%05.f'),2); % Lead II
 end
 
 %% Denoise signal
@@ -74,14 +71,14 @@ for j = 1:length(Data1)
     all_ann{j} = anno_sig;
 end
 
-%% Cut the annotation according to the R peak indeces
+%% Cut the annotation according to the R peak indices
 
 for i = 1:length(Data1)
     AL3{i} = all_ann2{i}(QRS2{i});
 end
 %% Segmentation of the labels
 
-AL_128_1 = segmentation(AL3,128); % Define segment length
+AL_128_1 = segmentation(AL3,20); % Define segment length
 
 %M10 = threshold(AL_128,10); % Threshold 10%
 %M20 = threshold(AL_128,20); % Threshold 20%
@@ -164,7 +161,7 @@ legend('DWT Filtering','Location','Best')
 
 %% Segment the R peaks in 128 R peaks per segment
 % Use the segmentation helper function
-Data_128 = segmentation(QRS2,128);
+Data_128 = segmentation(QRS2,20);
 
 %% RR-interval and HRV features
 % Use the FeatureExtraction helper function
@@ -267,70 +264,115 @@ kurt = squeeze(kurt);
 
 feat_cat = cat(1,mu,st,v,skew,kurt);
 
-%% -------------------------- Classification ----------------------------
-load('feat_cat1')
-load('feat_cat2')
-load('feat_cat3')
-load('feat_cat4')
+%% ------------------------- Classification ----------------------------
 load('feat_cat5')
 load('feat_cat6')
 
-feat_cat = cat(2,feat_cat1,feat_cat2,feat_cat3,feat_cat4,feat_cat5,feat_cat6);
+feat_cat = cat(2,feat_cat5,feat_cat6);
 feat_cat = feat_cat';
 
-trainMatrix128 = [feat_cat trainMatrix MM];
-
-indices = find(trainMatrix128(:,end)==0);
-trainMatrix128(indices,:) = [];
+trainMatrix128 = [feat_cat trainMatrix MM1];
 
 %trainMatrix128_30 = [feat_cat trainMatrix MM30];
 %trainMatrix128_20 = [feat_cat trainMatrix MM20];
 %trainMatrix128_10 = [feat_cat trainMatrix MM10];
 
 %% Gather the different parts into one matrix, M = 60
-load('feat_cat1')
-load('feat_cat2')
-load('feat_cat3')
-load('feat_cat4')
 load('feat_cat5')
 load('feat_cat6')
 
-feat_cat = cat(2,feat_cat1,feat_cat2,feat_cat3,feat_cat4,feat_cat5,feat_cat6);
+feat_cat = cat(2,feat_cat5,feat_cat6);
 feat_cat = feat_cat';
 
-trainMatrix60 = [feat_cat trainMatrix MM2];
-trainMatrix60_30 = [feat_cat trainMatrix MM30];
-trainMatrix60_20 = [feat_cat trainMatrix MM20];
-trainMatrix60_10 = [feat_cat trainMatrix MM10];
+trainMatrix60 = [feat_cat trainMatrix MM1];
+%trainMatrix60_30 = [feat_cat trainMatrix MM30];
+%trainMatrix60_20 = [feat_cat trainMatrix MM20];
+%trainMatrix60_10 = [feat_cat trainMatrix MM10];
+
+%% Gather the different parts into one matrix, M = 20
+load('feat_cat5')
+load('feat_cat6')
+
+feat_cat = cat(2,feat_cat5,feat_cat6);
+feat_cat = feat_cat';
+
+trainMatrix20 = [feat_cat trainMatrix MM1];
+
 
 %% Classify data with trained models
 
-x = trainMatrix128(:,452);
-y = trainMatrix128(:,451);
-scatterhist(x,y,'Group',trainMatrix128(:,end),'Kernel','on','Location','SouthEast',...
+x = trainMatrix20(:,452);
+y = trainMatrix20(:,451);
+scatterhist(x,y,'Group',trainMatrix20(:,end),'Kernel','on','Location','SouthEast',...
     'Direction','out','Color','br')
 xlabel('Standard Deviation of RRi (F452)')
 ylabel('Mean RRi (F451)')
 title('AFDB, majority vote, M = 128 beats')
 
 
+%% Loading of trained models and initialization, M = 128
+
+classification5Tree128 = trainedModel5Tree128.ClassificationTree;
+classification10Tree128 = trainedModel10Tree128.ClassificationTree;
+classification20Tree128 = trainedModel20Tree128.ClassificationTree;
+classification30Tree128 = trainedModel30Tree128.ClassificationTree;
+classification40Tree128 = trainedModel40Tree128.ClassificationTree;
+classification50Tree128 = trainedModel50Tree128.ClassificationTree;
+
+
+
+
+%% Loading of trained models and initialization, M = 60
+
+% Random Forest
+classification5Tree60 = trainedModel5Tree60.ClassificationTree;
+classification10Tree60 = trainedModel10Tree60.ClassificationTree;
+classification20Tree60 = trainedModel20Tree60.ClassificationTree;
+classification30Tree60 = trainedModel30Tree60.ClassificationTree;
+classification40Tree60 = trainedModel40Tree60.ClassificationTree;
+classification50Tree60 = trainedModel50Tree60.ClassificationTree;
+
+% SVM
+classificationLinearSVM60 = trainedModelLinearSVM60.ClassificationSVM;
+classificationCubicSVM60 = trainedModelCubicSVM60.ClassificationSVM;
+classificationQuadSVM60 = trainedModelQuadSVM60.ClassificationSVM;
+classificationRBFSVM60 = trainedModelRBFSVM60.ClassificationSVM;
+
+% kNN
+classification3KNN60 = trainedModel3KNN60.ClassificationKNN;
+classification5KNN60 = trainedModel5KNN60.ClassificationKNN;
+classification7KNN60 = trainedModel7KNN60.ClassificationKNN;
+classification9KNN60 = trainedModel9KNN60.ClassificationKNN;
+
+%% Loading of trained models and initialization, M = 20
+
+% Random Forest
+classification5Tree20 = trainedModel5Tree20.ClassificationTree;
+classification10Tree20 = trainedModel10Tree20.ClassificationTree;
+classification20Tree20 = trainedModel20Tree20.ClassificationTree;
+classification30Tree20 = trainedModel30Tree20.ClassificationTree;
+classification40Tree20 = trainedModel40Tree20.ClassificationTree;
+classification50Tree20 = trainedModel50Tree20.ClassificationTree;
+
+
 %% 
 
-[preds,scores] = predict(classification3KNN128ADASYN,trainMatrix128(:,1:end-1));
-% 
-% [x,y,~,auc] = perfcurve(trainMatrix128(:,end),scores(:,2),1);
+
+[preds,scores] = predict(classification50Tree20,trainMatrix20(:,1:end-1));
+
+[x,y,~,auc] = perfcurve(trainMatrix20(:,end),scores(:,2),1);
 
 
-
-% figure()
-% plot(x,y,'LineWidth',2)
-% xlabel('False Positive Rate')
-% ylabel('True Positive Rate')
-% title('ROC, AFDB, 50 Trees, Test')
 
 figure()
-confusionchart(trainM(:,end),yfit);
-title('AFDB, 50 Trees, Test')
+plot(x,y,'LineWidth',2)
+xlabel('False Positive Rate')
+ylabel('True Positive Rate')
+title('ROC, AFDB, RF 50 Trees, Test, M = 20 beats')
+
+figure()
+confusionchart(trainMatrix20(:,end),preds);
+title('AFDB, RF 50 Trees, Test, M = 20 beats')
 
 
 

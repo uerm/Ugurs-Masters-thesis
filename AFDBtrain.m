@@ -5,13 +5,12 @@ clear,clc
 % string by num2str.
 
 Data1 = [04015, 04043, 04048, 04126, 04746, 04908, 04936, 05091, 05121, 05261 ...
-    06426, 06453, 06995, 07162, 07859, 07879, 07910, 08215, 08219, 08378,...
-    08405, 08434, 08455];
+    06426, 06453, 06995, 07162, 07859, 07879];
 
 
 for i = 1:length(Data1)
-    [sig_1{i}, Fs1, tm_1{i}] = rdsamp(num2str(Data1(i),'%05.f'),1); % Lead I
-    [sig_2{i}, Fs2, tm_2{i}] = rdsamp(num2str(Data1(i),'%05.f'),2); % Lead II
+    [sig_1{i}, Fs1, ~] = rdsamp(num2str(Data1(i),'%05.f'),1); % Lead I
+    [sig_2{i}, Fs2, ~] = rdsamp(num2str(Data1(i),'%05.f'),2); % Lead II
 end
 
 %% Denoise signal
@@ -24,8 +23,8 @@ y2 = dwt_denoise2(sig_2,8,Data1); % Denoising Lead II
 [p,q] = rat(125/Fs1);
 
 for i = 1:length(Data1)
-    y11_new{i} = resample(y1{i}, p, q);
-    y22_new{i} = resample(y2{i}, p, q);
+    y1_new{i} = resample(y1{i}, p, q);
+    y2_new{i} = resample(y2{i}, p, q);
 end
 clear p q
 
@@ -74,14 +73,14 @@ for j = 1:length(Data1)
     all_ann{j} = anno_sig;
 end
 
-%% Cut the annotation according to the R peak indeces
+%% Cut the annotation according to the R peak indices
 
 for i = 1:length(Data1)
     AL3{i} = all_ann2{i}(QRS2{i});
 end
 %% Segmentation of the labels
 
-AL_128_1 = segmentation(AL3,128); % Define segment length
+AL_128_1 = segmentation(AL3,20); % Define segment length
 
 %M10 = threshold(AL_128,10); % Threshold 10%
 %M20 = threshold(AL_128,20); % Threshold 20%
@@ -164,7 +163,7 @@ legend('DWT Filtering','Location','Best')
 
 %% Segment the R peaks in 128 R peaks per segment
 % Use the segmentation helper function
-Data_128 = segmentation(QRS2,128);
+Data_128 = segmentation(QRS2,20);
 
 %% RR-interval and HRV features
 % Use the FeatureExtraction helper function
@@ -275,13 +274,10 @@ load('feat_cat4')
 load('feat_cat5')
 load('feat_cat6')
 
-feat_cat = cat(2,feat_cat1,feat_cat2,feat_cat3,feat_cat4,feat_cat5,feat_cat6);
+feat_cat = cat(2,feat_cat1,feat_cat2,feat_cat3,feat_cat4);
 feat_cat = feat_cat';
 
-trainMatrix128 = [feat_cat trainMatrix MM];
-
-indices = find(trainMatrix128(:,end)==0);
-trainMatrix128(indices,:) = [];
+trainMatrix128 = [feat_cat trainMatrix MM1];
 
 %trainMatrix128_30 = [feat_cat trainMatrix MM30];
 %trainMatrix128_20 = [feat_cat trainMatrix MM20];
@@ -292,22 +288,36 @@ load('feat_cat1')
 load('feat_cat2')
 load('feat_cat3')
 load('feat_cat4')
-load('feat_cat5')
-load('feat_cat6')
 
-feat_cat = cat(2,feat_cat1,feat_cat2,feat_cat3,feat_cat4,feat_cat5,feat_cat6);
+
+feat_cat = cat(2,feat_cat1,feat_cat2,feat_cat3,feat_cat4);
 feat_cat = feat_cat';
 
-trainMatrix60 = [feat_cat trainMatrix MM2];
-trainMatrix60_30 = [feat_cat trainMatrix MM30];
-trainMatrix60_20 = [feat_cat trainMatrix MM20];
-trainMatrix60_10 = [feat_cat trainMatrix MM10];
+trainMatrix60 = [feat_cat trainMatrix MM1];
+%trainMatrix60_30 = [feat_cat trainMatrix MM30];
+%trainMatrix60_20 = [feat_cat trainMatrix MM20];
+%trainMatrix60_10 = [feat_cat trainMatrix MM10];
+
+%% M = 20
+load('feat_cat1')
+load('feat_cat21')
+load('feat_cat22')
+load('feat_cat3')
+load('feat_cat4')
+
+
+feat_cat = cat(2,feat_cat1,feat_cat21,feat_cat22,feat_cat3,feat_cat4);
+feat_cat = feat_cat';
+
+trainMatrix20 = [feat_cat trainMatrix MM1];
+
+
 
 %% Classify data with trained models
 
-x = trainMatrix128(:,452);
-y = trainMatrix128(:,451);
-scatterhist(x,y,'Group',trainMatrix128(:,end),'Kernel','on','Location','SouthEast',...
+x = trainMatrix20(:,452);
+y = trainMatrix20(:,451);
+scatterhist(x,y,'Group',trainMatrix20(:,end),'Kernel','on','Location','SouthEast',...
     'Direction','out','Color','br')
 xlabel('Standard Deviation of RRi (F452)')
 ylabel('Mean RRi (F451)')

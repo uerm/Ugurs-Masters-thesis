@@ -1,6 +1,6 @@
 function [m_RRIseg, s_RRIseg, r_RRIseg, n_RRIseg, CV_RRIseg, minRRIseg,...
    m_RRIseg1, s_RRIseg1, r_RRIseg1, n_RRIseg1, CV_RRIseg1, minRRIseg1,...
-   trainMatrix] = FeatureExtraction(qrs,seg,data)
+   trainMatrix] = FeatureExtraction(qrs,seg,data,Fs)
 
 D = length(data);
 
@@ -8,12 +8,15 @@ RRI = zeros(0);
 
 % RR-interval without segmentation.
 for i = 1:D
-    RRI{1,i} = diff(qrs{1,i});
+    RRI{1,i} = diff(qrs{1,i})/Fs;
 end
 
 % RR-interval with segmentation[
 %fun = @(m)diff(m,1,2);
 RRIseg = cellfun(@(m)diff(m,1,2),seg,'uni',0);
+for i = 1:length(RRIseg)
+    RRIseg{i} = RRIseg{i}/Fs;
+end
 
 M_RRI = zeros(0);
 SDNN = zeros(0);

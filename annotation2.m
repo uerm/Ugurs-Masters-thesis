@@ -1,21 +1,21 @@
 function anntype_new = annotation2(Data,loc,wave,ann,anntype)
 
 for i = 1:length(Data)
-    N_loc_matrix{1,i} = find(loc{1,i}=='N');
+    N{1,i} = find(loc{1,i}=='N');
     
-    for N_no = 1:length(N_loc_matrix{1,i})
-        N_loc = N_loc_matrix{1,i}(N_no);
-        wave_new{1,i}(N_no,1) = wave{1,i}(N_loc);
+    for no_N = 1:length(N{1,i})
+        loc_N = N{1,i}(no_N);
+        wave_new{1,i}(no_N,1) = wave{1,i}(loc_N);
         
-        a = ann{1,i};
-        n = wave{1,i}(N_loc);
-        [val,idx] = min(abs(a-n));
-        QRS2{1,i}(N_no,1) = a(idx); % New QRS
+        anno = ann{1,i};
+        n = wave{1,i}(loc_N);
+        [value,index] = min(abs(anno-n));
+        QRS2{1,i}(no_N,1) = anno(index); % New QRS
         
         
-        for j = 1:length(anntype{1,i})
-            if a(idx) == ann{1,i}(j)
-                anntype_new{1,i}(N_no,1) = anntype{1,i}(j);
+        for k = 1:length(anntype{1,i})
+            if anno(index) == ann{1,i}(k)
+                anntype_new{1,i}(no_N,1) = anntype{1,i}(k);
             end
         end
     end

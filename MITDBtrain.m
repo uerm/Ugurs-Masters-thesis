@@ -3,10 +3,9 @@ clear,clc
 addpath 'C:\Users\Dell\Desktop\Test\mit-bih-arrhythmia-database-1.0.0' % Add path to WFDB toolbox
 
 % MITDB Data
-Data = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113,...
-    114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 200, 201, 202, 203,...
-    205, 207, 208, 209, 210, 212, 213, 214, 215, 217, 219, 220, 221, 222,...
-    223, 228, 230, 231, 232, 233, 234];
+Data = [100, 101, 102,106, 107, 108, 109, 111, 112, 113, 114, 115, 116,...
+    117, 119, 121, 122, 124, 200, 201,203, 207, 208, 209, 213, 214, 215, 217, 220,...
+    221, 222, 223, 228, 230, 231, 232, 233, 234];
 
 for i = 1:length(Data)
     [sig1{i}, Fs1, ~] = rdsamp(num2str(Data(i)),1); % Lead I
@@ -32,7 +31,7 @@ clear y1 y2 p q
 %% Read annotations
 
 for i = 1:length(Data)
-    [ann{i},anntype{i},~,~,~,comments{i}] = rdann(num2str(Data(i)),'atr');
+    [ann2{i},anntype2{i},~,~,~,comments{i}] = rdann(num2str(Data(i)),'atr');
 end
 
 
@@ -62,16 +61,16 @@ toc
 % Divide each peak index with 2 since resampling to fs/2
 tic
 for i = 1:length(Data)
-    QRS{1,i} = round(QRS{1,i}.*(125/360));
-    ann{1,i} = round(ann{1,i}.*(125/360));
-    wave{1,i} = round(wave{1,i}.*(125/360));
+    QRS2{1,i} = round(QRS2{1,i}.*(125/360));
+    %ann2{1,i} = round(ann2{1,i}.*(125/360));
+    wave2{1,i} = round(wave2{1,i}.*(125/360));
 end
 toc
 %%
 tic
 
 % "Cut" the labels according to the R peaks
-anntype_new = annotation2(Data,loc,wave,ann,comments2);
+anntype_new = annotation2(Data,loc2,wave2,ann2,comments2);
 
 AL = labelling2(anntype_new,Data); % Label the data
 
@@ -79,14 +78,14 @@ toc
 
 
 %%
-% For each cell of AL, find the non-2's
-keepIndices = cellfun(@(x)x~=2,AL,'UniformOutput',false);
-
-% Keep the elements of AL that are non-2's
-AL2  = cellfun(@(x,y)x(y),AL, keepIndices,'UniformOutput',false);
-
-% Keep the elements of QRS that are non-2's
-QRS2 = cellfun(@(x,y)x(y),QRS,keepIndices,'UniformOutput',false);
+% % For each cell of AL, find the non-2's
+% keepIndices = cellfun(@(x)x~=2,AL,'UniformOutput',false);
+% 
+% % Keep the elements of AL that are non-2's
+% AL2  = cellfun(@(x,y)x(y),AL, keepIndices,'UniformOutput',false);
+% 
+% % Keep the elements of QRS that are non-2's
+% QRS2 = cellfun(@(x,y)x(y),QRS,keepIndices,'UniformOutput',false);
 
 
 
@@ -95,7 +94,7 @@ tic
 
 AL_128 = segmentation(AL,20); % Define segment length
 
-%M = threshold(AL_128,30); % Threshold 30%
+%M = threshold(AL_128,10); % Threshold 30%
 
 % Use the "M" variables depending on the threshold that will be used.
 
@@ -174,7 +173,7 @@ legend('DWT Filtering','Location','Best')
 % Use the segmentation helper function
 % segmentation(data,n), where data is the index of the R peaks and n is the
 % length of the segment.
-Data_10 = segmentation(QRS,20);
+Data_10 = segmentation(QRS2,20);
 
 %Data_10_2 = Data_10(~cellfun('isempty',Data_10));
 
@@ -186,7 +185,7 @@ Data_10 = segmentation(QRS,20);
 Fs = Fs1*(125/Fs1);
 
 [~, ~, ~, ~, ~, ~, ~, ~, ~, ~, ~, ~,...
-   trainMatrix] = FeatureExtraction(QRS,Data_10,Data,Fs);
+   trainMatrix] = FeatureExtraction(QRS2,Data_10,Data,Fs);
 
 
 %% Segmentation of filtered signal based on R peak location
@@ -216,7 +215,7 @@ ecg2 = cellfun(@(m) normalize(m,2), ecg_segments2,'uni',0);
 %     ecg2{i} = (ecg_segments2{i} - mean(ecg_segments2{i},2));
 % end
 
-for i = 1:length(Data_10)
+for i = 1:length(Data)
     tensor{i} = cat(3,ecg1{i},ecg2{i});
 end
 
@@ -247,10 +246,13 @@ title('Subject 100, Lead II, with zeros')
 
 
 %% Wavelet + EMD
+tic
+% clear y1 y2 sig1_new sig2_new ...
+%     twaves pwaves
 max_wavelet_level = 8;
 nn = 5;
 
-for i = 1:length(tensor)
+for i = 1:length(Data)
     i
     patient = tensor{1,i};
     for k = 1:size(patient,1)
@@ -301,7 +303,7 @@ stacked = cat(3,resh_padded{:});
 clear resh_padded
 
 %% Calculate statistical features of DWT+EMD
-
+tic
 mu = squeeze(double(mean(stacked,2))); % mean
 st = squeeze(double(std(stacked,0,2))); % standard deviation
 v = squeeze(double(var(stacked,0,2))); % variance
@@ -309,12 +311,12 @@ v = squeeze(double(var(stacked,0,2))); % variance
 skew = nan(90,1,size(stacked,3)); % skewness
 kurt = nan(90,1,size(stacked,3)); % kurtosis
 
-for i = 1:size(skew,1)
+parfor i = 1:size(skew,1)
+    i
     skew(i,:,:) = double(skewness(stacked(i,:,:),1,2));
     kurt(i,:,:) = double(kurtosis(stacked(i,:,:),1,2));
 end
-
-clear stacked;
+toc
 
 skew = squeeze(skew);
 kurt = squeeze(kurt);
@@ -344,7 +346,7 @@ trainMatrix11 = [trainMatrix1;t1];
 %% Train with only DWT+EMD statistical features (also with ADASYN)
 
 % Statistical features transposed to match the other features
-feat_cat128 = feat_cat128';
+feat_cat20 = feat_cat';
 
 % No ADASYN
 trainMatrix2 = [feat_cat MM];
@@ -364,7 +366,10 @@ trainMatrix22 = [trainMatrix2;t2];
 %% Train with HRV features + DWT+EMD features (also with ADASYN)
 
 % No ADASYN
-trainMatrix3 = [feat_cat128 trainMatrix MM];
+
+trainMatrix3 = [feat_cat20 trainMatrix MM];
+indices = find(trainMatrix3(:,end)==2);
+trainMatrix3(indices,:) = [];
 
 feat3 = trainMatrix3(:,1:end-1);
 
@@ -380,13 +385,13 @@ trainMatrix33 = [trainMatrix3;t3];
 
 %% Create scatter plots of data
 
-x = trainMatrix33(:,2);
-y = trainMatrix33(:,1);
-scatterhist(x,y,'Group',trainMatrix33(:,end),'Kernel','on','Location','SouthEast',...
+x = trainMatrix3(:,452);
+y = trainMatrix3(:,451);
+scatterhist(x,y,'Group',trainMatrix3(:,end),'Kernel','on','Location','SouthEast',...
     'Direction','out','Color','br')
 xlabel('Standard Deviation of RRi (F452)')
 ylabel('Mean RRi (F451)')
-title('MITDB, majority vote, M = 128 beats, after ADASYN')
+title('MITDB, majority vote, M = 128 beats, before ADASYN')
 
 %%
 x = trainMatrix33(:,452);
@@ -395,5 +400,5 @@ scatterhist(x,y,'Group',trainMatrix33(:,end),'Kernel','on','Location','SouthEast
     'Direction','out','Color','br')
 xlabel('Standard Deviation of RRi (F452)')
 ylabel('Mean RRi (F451)')
-title('MITDB, majority vote, M = 20 beats, after ADASYN')
+title('MITDB, majority vote, M = 128 beats, after ADASYN')
 
